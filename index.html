@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LaquTum — Master Aptitude Patterns</title>
+    <meta name="description" content="Crack any aptitude test with our comprehensive guide. Learn tricks, formulas, and shortcuts for every topic. Master it all in just 2 days with structured solutions and practice problems.">
+    <meta name="keywords" content="aptitude, aptitude tricks, aptitude formulas, crack interview, placement preparation, quantitative aptitude, logical reasoning">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="preview.css">
+</head>
+<body>
+
+    <!-- Floating Particles Background -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo">
+                <span class="logo-icon">⚡</span>
+                <span class="logo-text">Laqu<span class="logo-accent">Tum</span></span>
+            </a>
+            <div class="nav-links" id="navLinks">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#topics" class="nav-link">Topics</a>
+                <a href="#how-it-works" class="nav-link">How It Works</a>
+                <a href="#preview" class="nav-link">Preview</a>
+                <a href="#pricing" class="nav-link">Pricing</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+            </div>
+            <div class="nav-auth-container" id="navAuthContainer"></div>
+            <a href="#pricing" class="nav-cta">Get Access Now</a>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Bottom Navigation (Mobile Only) -->
+    <div class="bottom-nav">
+        <a href="#hero" class="bottom-nav-item active">
+            <span class="bottom-nav-icon">🏠</span>
+            <span class="bottom-nav-text">Home</span>
+        </a>
+        <a href="#topics" class="bottom-nav-item">
+            <span class="bottom-nav-icon">📚</span>
+            <span class="bottom-nav-text">Topics</span>
+        </a>
+        <a href="#preview" class="bottom-nav-item">
+            <span class="bottom-nav-icon">⚡</span>
+            <span class="bottom-nav-text">Preview</span>
+        </a>
+        <a href="#pricing" class="bottom-nav-item">
+            <span class="bottom-nav-icon">💎</span>
+            <span class="bottom-nav-text">Access</span>
+        </a>
+    </div>
+
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="hero-glow"></div>
+        <div class="dashboard-container">
+            <!-- Top Cards -->
+            <div class="dashboard-top-cards">
+                <a href="#preview" class="dash-card dash-card-left">
+                    <div class="dash-card-header">
+                        <span class="dash-card-label">PRACTICE</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-1)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                    <h2 class="dash-card-title">Tap to view<br>mock tests</h2>
+                    <div class="dash-card-icon-area">
+                        <div class="dash-icon-placeholder">🎯</div>
+                    </div>
+                </a>
+                
+                <div class="dash-card dash-card-right">
+                    <div class="dash-card-header">
+                        <span class="dash-card-label">APTITUDE</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-3)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                    <h2 class="dash-card-title">Solve aptitude<br><span class="highlight-bold">50% faster</span><br>than ever before</h2>
+                    <a href="#pricing" class="dash-btn-black">OPEN ACCOUNT</a>
+                </div>
+            </div>
+
+            <!-- Banner Slider -->
+            <div class="dash-slider-wrapper">
+                <div class="dash-slider-track" id="dashSlider">
+                    <div class="dash-slider-slide slide-1">
+                        <div class="slide-content">
+                            <span class="slide-tag">Insight</span>
+                            <p>"Here is exactly why 73% of people who tried this problem picked option B instead of option C."</p>
+                            <button class="slide-btn">Read More</button>
+                        </div>
+                    </div>
+                    <div class="dash-slider-slide slide-2">
+                        <div class="slide-content">
+                            <span class="slide-tag">Pro Tip</span>
+                            <p>Stop using x and y variables! Learn the percentage substitution method and save 45 seconds per question.</p>
+                            <button class="slide-btn">Learn How</button>
+                        </div>
+                    </div>
+                    <div class="dash-slider-slide slide-3">
+                        <div class="slide-content">
+                            <span class="slide-tag">Secret</span>
+                            <p>Most IT companies reuse the exact same logic patterns in their placement tests. Master the pattern today.</p>
+                            <button class="slide-btn">View Patterns</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="slider-dots" id="sliderDots"></div>
+            </div>
+
+            <!-- Action Grid (Quick Links) -->
+            <div class="dashboard-action-section">
+                <h3 class="dash-section-title">Course Overview</h3>
+                <div class="dash-action-card">
+                    <div class="dash-action-grid">
+                        <a href="#topics" class="dash-action-item">
+                            <div class="dash-action-icon-circle blue">
+                                <span>📚</span>
+                            </div>
+                            <span class="dash-action-text">50+ Topics</span>
+                        </a>
+                        <a href="#topics" class="dash-action-item">
+                            <div class="dash-action-icon-circle purple">
+                                <span>📝</span>
+                            </div>
+                            <span class="dash-action-text">500+ Qs</span>
+                        </a>
+                        <a href="#preview" class="dash-action-item">
+                            <div class="dash-action-icon-circle orange">
+                                <span>⏱️</span>
+                            </div>
+                            <span class="dash-action-text">48 Hours</span>
+                        </a>
+                        <a href="#pricing" class="dash-action-item">
+                            <div class="dash-action-icon-circle green">
+                                <span>💡</span>
+                            </div>
+                            <span class="dash-action-text">Solutions</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Auth Modal (Sign Up / Sign In) ===== -->
+    <div class="auth-modal-overlay hidden" id="authModalOverlay">
+        <div class="auth-modal-card">
+            <button class="auth-modal-close" id="authModalClose">&times;</button>
+            
+            <!-- Form: Sign Up -->
+            <form class="auth-form" id="formSignup">
+                <div class="auth-header">
+                    <h3>Create an Account</h3>
+                    <p>Save your aptitude score, baseline analysis, and topic progress.</p>
+                </div>
+                <div class="auth-input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="signupName" placeholder="Enter your full name" required>
+                </div>
+                <div class="auth-input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="signupEmail" placeholder="name@example.com" required>
+                </div>
+                <div class="auth-input-group">
+                    <label>Password</label>
+                    <input type="password" id="signupPassword" placeholder="Choose a password" required>
+                </div>
+                <div class="auth-error-msg hidden" id="signupError"></div>
+                <button type="submit" class="auth-submit-btn">Create Account</button>
+                <div class="auth-switch-text">
+                    I already have an account - <a href="#" id="switchToSignin">Log in</a>
+                </div>
+            </form>
+
+            <!-- Form: Sign In -->
+            <form class="auth-form hidden" id="formSignin">
+                <div class="auth-header">
+                    <h3>Welcome Back</h3>
+                    <p>Sign in to resume your learning right where you left off.</p>
+                </div>
+                <div class="auth-input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="signinEmail" placeholder="name@example.com" required>
+                </div>
+                <div class="auth-input-group">
+                    <label>Password</label>
+                    <input type="password" id="signinPassword" placeholder="Enter your password" required>
+                </div>
+                <div class="auth-error-msg hidden" id="signinError"></div>
+                <button type="submit" class="auth-submit-btn">Sign In</button>
+                <div class="auth-switch-text">
+                    Don't have an account? <a href="#" id="switchToSignup">Create one</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== Interactive Preview Overlay ===== -->
+    <div class="preview-overlay" id="preview-overlay">
+
+        <!-- Top Bar -->
+        <div class="preview-topbar">
+            <button class="preview-back-btn" id="pv-back" title="Logout" aria-label="Logout">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            </button>
+            <div class="preview-app-title">Laqu<span class="logo-accent">Tum</span></div>
+            <button class="preview-profile-btn" id="pv-profile-btn" title="View Profile">
+                <span class="user-avatar-icon">👤</span>
+            </button>
+        </div>
+
+        <!-- Main Scrollable Area -->
+        <div class="preview-main">
+
+            <!-- Screen: Dashboard / Path -->
+            <div class="preview-screen" id="screen-dashboard">
+                <div id="dashboard-content" style="width:100%;max-width:100%;overflow-x:hidden;"></div>
+            </div>
+
+            <!-- Screen: Quiz / Survey -->
+            <div class="preview-screen" id="screen-quiz">
+                <div id="quiz-content" style="width:100%;"></div>
+            </div>
+
+            <!-- Screen: Results -->
+            <div class="preview-screen" id="screen-results">
+                <div id="results-content" style="width:100%;"></div>
+            </div>
+
+            <!-- Screen: Lesson -->
+            <div class="preview-screen" id="screen-lesson">
+                <div id="lesson-content" style="width:100%;"></div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Action Bar (for quiz/survey) -->
+        <div class="preview-action-bar hidden" id="pv-action-bar">
+            <button class="preview-check-btn" id="pv-check">Select an answer</button>
+        </div>
+
+        <!-- Feedback Drawer -->
+        <div class="feedback-drawer" id="feedback-drawer">
+            <div class="feedback-title"></div>
+            <div class="feedback-explanation"></div>
+            <button class="feedback-btn">Continue</button>
+        </div>
+
+        <!-- XP Popup -->
+        <div class="xp-popup" id="xp-popup">
+            <div class="xp-popup-value">+10 XP</div>
+            <div class="xp-popup-label">XP Earned!</div>
+        </div>
+
+        <!-- App Overlay Bottom Navigation Bar (Floating Levitating Glassmorphic Bar) -->
+        <div class="overlay-bottom-nav" id="overlay-bottom-nav">
+            <button class="app-bottom-nav-item active" id="app-nav-home">
+                <span class="app-nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <span class="app-nav-text">Home</span>
+            </button>
+            <button class="app-bottom-nav-item" id="app-nav-topics">
+                <span class="app-nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                </span>
+                <span class="app-nav-text">Topics</span>
+            </button>
+            <button class="app-bottom-nav-item" id="app-nav-access">
+                <span class="app-nav-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                </span>
+                <span class="app-nav-text">Access</span>
+            </button>
+        </div>
+
+    </div>
+    <!-- ===== End Preview Overlay ===== -->
+
+    <script src="supabase.min.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="script.js"></script>
+    <script src="engine/content-loader.js"></script>
+    <script src="engine/confidence-tracker.js"></script>
+    <script src="engine/selection-engine.js"></script>
+    <script src="preview.js"></script>
+    <script src="auth.js"></script>
+</body>
+</html>

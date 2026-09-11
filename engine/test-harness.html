@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laqtum Engine Test Harness</title>
+    <style>
+        :root {
+            --bg: #0f0f1a;
+            --card: #1a1a2e;
+            --border: #2d2d44;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --accent: #7c3aed;
+            --green: #10b981;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --blue: #3b82f6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+            line-height: 1.5;
+        }
+        h1 { color: var(--accent); margin-bottom: 8px; font-size: 1.5rem; }
+        h2 { color: var(--text); margin: 24px 0 12px; font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        h3 { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+
+        #status { padding: 12px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; }
+        .status-ok { background: rgba(16,185,129,0.15); color: var(--green); }
+        .status-err { background: rgba(239,68,68,0.15); color: var(--red); }
+
+        /* ── Score Table ── */
+        .score-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .score-table th, .score-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .score-table th { color: var(--text-dim); font-weight: 600; }
+        .score-bar-wrap { background: var(--border); border-radius: 4px; height: 12px; width: 100%; min-width: 80px; }
+        .score-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+        .level-NOT_RECOGNIZED { background: var(--red); }
+        .level-EMERGING { background: var(--orange); }
+        .level-SOLID { background: var(--blue); }
+        .level-MASTERED { background: var(--green); }
+        .locked-badge { font-size: 0.7rem; background: rgba(124,58,237,0.2); color: var(--accent); padding: 2px 6px; border-radius: 4px; }
+        .excluded { opacity: 0.35; }
+
+        /* ── Controls ── */
+        .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+        .btn:hover { background: var(--border); }
+        .btn-correct { border-color: var(--green); color: var(--green); }
+        .btn-wrong { border-color: var(--red); color: var(--red); }
+        .btn-comp { border-color: var(--orange); color: var(--orange); }
+        .btn-danger { border-color: var(--red); color: var(--red); }
+        .btn-accent { border-color: var(--accent); color: var(--accent); }
+
+        select {
+            padding: 8px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        /* ── Log ── */
+        #log {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+        .log-entry { border-bottom: 1px solid rgba(45,45,68,0.5); padding: 4px 0; }
+        .log-up { color: var(--green); }
+        .log-down { color: var(--red); }
+        .log-info { color: var(--blue); }
+
+        /* ── Content Bank Stats ── */
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+        .stat-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <h1>⚡ Laqtum Engine Test Harness</h1>
+    <div id="status">Loading...</div>
+
+    <!-- Content Bank Stats -->
+    <h2>📦 Content Bank</h2>
+    <div id="bankStats" class="stat-grid"></div>
+
+    <!-- Confidence Scores -->
+    <h2>📊 Pattern Confidence Scores</h2>
+    <table class="score-table">
+        <thead>
+            <tr>
+                <th>Pattern</th>
+                <th>Score</th>
+                <th>Bar</th>
+                <th>Level</th>
+                <th>Status</th>
+                <th>Priority</th>
+            </tr>
+        </thead>
+        <tbody id="scoreBody"></tbody>
+    </table>
+
+    <!-- Simulation Controls -->
+    <h2>🎮 Simulate Responses</h2>
+    <h3>Select Pattern</h3>
+    <div class="controls">
+        <select id="patternSelect"></select>
+    </div>
+
+    <h3>Simulate Answer</h3>
+    <div class="controls">
+        <button class="btn btn-correct" onclick="simulate(true, 5000)">✅ Correct (Fast 5s)</button>
+        <button class="btn btn-correct" onclick="simulate(true, 25000)">✅ Correct (Normal 25s)</button>
+        <button class="btn btn-correct" onclick="simulate(true, 60000)">✅ Correct (Slow 60s)</button>
+        <button class="btn btn-wrong" onclick="simulate(false, 20000)">❌ Wrong</button>
+    </div>
+
+    <h3>Simulate Comprehension (after last answer)</h3>
+    <div class="controls">
+        <button class="btn btn-comp" onclick="simulateComp('understood')">Understood</button>
+        <button class="btn btn-comp" onclick="simulateComp('slightly_understood')">Slightly</button>
+        <button class="btn btn-comp" onclick="simulateComp('nothing_understood')">Nothing</button>
+        <button class="btn btn-comp" onclick="simulateComp('some_doubts')">Some Doubts</button>
+        <button class="btn btn-comp" onclick="simulateComp('cant_apply_but_understood')">Can't Apply</button>
+    </div>
+
+    <h3>Special Actions</h3>
+    <div class="controls">
+        <button class="btn btn-accent" onclick="simulateDecay()">⏳ Simulate 7-Day Decay</button>
+        <button class="btn btn-accent" onclick="simulateDiagnostic()">🎯 Seed Diagnostic (random)</button>
+        <button class="btn btn-danger" onclick="resetAll()">🗑️ Reset All Data</button>
+    </div>
+
+    <!-- Event Log -->
+    <h2>📝 Event Log</h2>
+    <div id="log"></div>
+
+    <script src="engine/content-loader.js"></script>
+    <script src="engine/confidence-tracker.js"></script>
+    <script>
+        const ALL_PATTERNS = ['P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11','P12'];
+        let lastPattern = null;
+
+        async function boot() {
+            const statusEl = document.getElementById('status');
+
+            try {
+                // Init content bank
+                await ContentBank.init('www/content-bank.json');
+                // Init confidence tracker
+                ConfidenceTracker.init();
+
+                statusEl.textContent = '✅ Engine loaded successfully';
+                statusEl.className = 'status-ok';
+
+                renderBankStats();
+                renderScores();
+                populatePatternSelect();
+                addLog('Engine initialized', 'info');
+
+            } catch (e) {
+                statusEl.textContent = `❌ Failed: ${e.message}`;
+                statusEl.className = 'status-err';
+                console.error(e);
+            }
+        }
+
+        function renderBankStats() {
+            const stats = ContentBank.getStats();
+            const el = document.getElementById('bankStats');
+            el.innerHTML = `
+                <div class="stat-card"><div class="stat-value">${stats.v2Entries}</div><div class="stat-label">v2 Entries</div></div>
+                <div class="stat-card"><div class="stat-value">${stats.v1EntriesSkipped}</div><div class="stat-label">v1 Skipped</div></div>
+                <div class="stat-card"><div class="stat-value">${stats.patternsLive.length}</div><div class="stat-label">Live Patterns</div></div>
+                <div class="stat-card"><div class="stat-value">${stats.patternsExcluded.length}</div><div class="stat-label">Excluded</div></div>
+                <div class="stat-card"><div class="stat-value">${stats.danglingReferences.length}</div><div class="stat-label">Dangling Refs</div></div>
+                <div class="stat-card"><div class="stat-value">${stats.duplicateIds.length}</div><div class="stat-label">Dup IDs</div></div>
+            `;
+        }
+
+        function renderScores() {
+            const body = document.getElementById('scoreBody');
+            const states = ConfidenceTracker.getAllStates();
+            const livePatterns = ContentBank.getLivePatterns();
+
+            body.innerHTML = '';
+            for (const p of ALL_PATTERNS) {
+                const s = states[p];
+                const isLive = livePatterns.includes(p);
+                const pct = (s.score * 100).toFixed(1);
+                const priority = isLive ? ConfidenceTracker.computePriorityScore(p).toFixed(3) : '—';
+
+                body.innerHTML += `
+                    <tr class="${isLive ? '' : 'excluded'}">
+                        <td><strong>${p}</strong></td>
+                        <td>${s.score.toFixed(4)}</td>
+                        <td>
+                            <div class="score-bar-wrap">
+                                <div class="score-bar level-${s.level}" style="width: ${pct}%"></div>
+                            </div>
+                        </td>
+                        <td>${s.level.replace('_', ' ')}</td>
+                        <td>${s.locked ? '<span class="locked-badge">🔒 LOCKED</span>' : (isLive ? 'Active' : 'Excluded')}</td>
+                        <td>${priority}</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function populatePatternSelect() {
+            const select = document.getElementById('patternSelect');
+            const live = ContentBank.getLivePatterns();
+            select.innerHTML = '';
+            for (const p of live) {
+                select.innerHTML += `<option value="${p}">${p} (${ContentBank.getQuestions(p).length} questions)</option>`;
+            }
+        }
+
+        function getSelectedPattern() {
+            return document.getElementById('patternSelect').value;
+        }
+
+        function simulate(correct, timeMs) {
+            const pattern = getSelectedPattern();
+            if (!pattern) return;
+            lastPattern = pattern;
+
+            const result = ConfidenceTracker.update(pattern, {
+                correct,
+                responseTimeMs: timeMs,
+                comprehension: null
+            });
+
+            const dir = result.delta >= 0 ? 'up' : 'down';
+            addLog(
+                `${pattern}: ${correct ? '✅ Correct' : '❌ Wrong'} (${(timeMs/1000).toFixed(0)}s) → ${result.oldScore} → ${result.newScore} (${result.delta >= 0 ? '+' : ''}${result.delta}) [${result.level}]`,
+                dir
+            );
+            renderScores();
+        }
+
+        function simulateComp(comp) {
+            const pattern = lastPattern || getSelectedPattern();
+            if (!pattern) return;
+
+            const result = ConfidenceTracker.update(pattern, {
+                correct: true, // Comprehension-only updates assume the preceding answer
+                responseTimeMs: 20000,
+                comprehension: comp
+            });
+
+            const dir = result.delta >= 0 ? 'up' : 'down';
+            addLog(
+                `${pattern}: Comprehension="${comp}" → ${result.oldScore} → ${result.newScore} (${result.delta >= 0 ? '+' : ''}${result.delta})`,
+                dir
+            );
+            renderScores();
+        }
+
+        function simulateDecay() {
+            // Manually set lastTouched to 7 days ago for all patterns
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const raw = JSON.parse(localStorage.getItem('laqtum_confidence'));
+            if (raw) {
+                for (const p of ALL_PATTERNS) {
+                    if (raw.patterns[p] && raw.patterns[p].lastTouched) {
+                        raw.patterns[p].lastTouched = sevenDaysAgo;
+                    }
+                }
+                localStorage.setItem('laqtum_confidence', JSON.stringify(raw));
+            }
+            ConfidenceTracker.init(); // Re-init triggers decay
+            addLog('Simulated 7-day gap — decay applied to all touched patterns', 'info');
+            renderScores();
+        }
+
+        function simulateDiagnostic() {
+            const live = ContentBank.getLivePatterns();
+            const results = live.map(p => ({
+                pattern: p,
+                correct: Math.random() > 0.4,
+                responseTimeMs: 5000 + Math.random() * 50000
+            }));
+
+            ConfidenceTracker.seedFromDiagnostic(results);
+
+            for (const r of results) {
+                addLog(
+                    `Diagnostic: ${r.pattern} → ${r.correct ? '✅' : '❌'} (${(r.responseTimeMs/1000).toFixed(1)}s) → score=${ConfidenceTracker.getScore(r.pattern).toFixed(4)}`,
+                    r.correct ? 'up' : 'down'
+                );
+            }
+            renderScores();
+        }
+
+        function resetAll() {
+            ConfidenceTracker.reset();
+            addLog('All confidence data reset', 'info');
+            renderScores();
+        }
+
+        function addLog(msg, type) {
+            const log = document.getElementById('log');
+            const ts = new Date().toLocaleTimeString();
+            log.innerHTML = `<div class="log-entry log-${type}">[${ts}] ${msg}</div>` + log.innerHTML;
+        }
+
+        boot();
+    </script>
+</body>
+</html>
