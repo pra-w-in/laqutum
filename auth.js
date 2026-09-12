@@ -112,8 +112,20 @@ const AuthManager = (function () {
                 streak: progress.streak,
                 hearts: progress.hearts,
                 confidenceStates: progress.confidence_states || {},
-                topicProgress: progress.topic_progress || {}
+                topicProgress: progress.topic_progress || {},
+                isBanned: progress.is_banned || false,
+                isAdmin: progress.is_admin || false,
+                unlockedTopics: progress.unlocked_topics || []
             };
+
+            // Enforce Ban Hammer
+            if (_currentUserCache.isBanned) {
+                alert("Your account has been suspended for violating community guidelines.");
+                await supabaseClient.auth.signOut();
+                _currentUserCache = null;
+                window.location.reload();
+                return null;
+            }
         } else {
             // Fallback if progress row is missing
             _currentUserCache = {
@@ -151,10 +163,11 @@ const AuthManager = (function () {
 
         if (Object.keys(dbUpdates).length === 0) return user;
 
+        dbUpdates.user_id = user.id;
+
         const { data, error } = await supabaseClient
             .from('user_progress')
-            .update(dbUpdates)
-            .eq('user_id', user.id)
+            .upsert(dbUpdates, { onConflict: 'user_id' })
             .select()
             .single();
 
