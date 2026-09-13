@@ -272,8 +272,21 @@ const AuthManager = (function () {
 
     async function init() {
         // Fetch current session on load
-        await getCurrentUser();
+        const user = await getCurrentUser();
         await updateNavbarUI();
+
+        // Hide global loader once auth state is resolved
+        const loader = document.getElementById('global-loader');
+        if (loader) {
+            loader.style.opacity = '0';
+            loader.style.transition = 'opacity 0.4s ease';
+            setTimeout(() => loader.remove(), 400);
+        }
+
+        // If user is logged in, auto-open the app dashboard instead of showing landing page
+        if (user && typeof PreviewApp !== 'undefined') {
+            PreviewApp.open();
+        }
 
         const closeBtn = document.getElementById('authModalClose');
         if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);

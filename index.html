@@ -13,6 +13,11 @@
     <link rel="stylesheet" href="preview.css">
 </head>
 <body>
+    <!-- Global App Loader -->
+    <div id="global-loader" style="position:fixed; inset:0; background:#0B0B13; z-index:999999; display:flex; justify-content:center; align-items:center;">
+        <div style="width:48px; height:48px; border:4px solid rgba(255,255,255,0.05); border-top-color:#8B5CF6; border-radius:50%; animation:global-spin 1s linear infinite;"></div>
+    </div>
+    <style>@keyframes global-spin { to { transform: rotate(360deg); } }</style>
 
     <!-- Floating Particles Background -->
     <div class="particles" id="particles"></div>
