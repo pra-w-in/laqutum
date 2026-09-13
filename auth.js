@@ -160,6 +160,7 @@ const AuthManager = (function () {
         if (updates.hearts !== undefined) dbUpdates.hearts = updates.hearts;
         if (updates.confidenceStates !== undefined) dbUpdates.confidence_states = updates.confidenceStates;
         if (updates.topicProgress !== undefined) dbUpdates.topic_progress = updates.topicProgress;
+        if (updates.unlockedTopics !== undefined) dbUpdates.unlocked_topics = updates.unlockedTopics;
 
         if (Object.keys(dbUpdates).length === 0) return user;
 
