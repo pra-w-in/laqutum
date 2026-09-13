@@ -943,7 +943,7 @@ const PreviewApp = (() => {
                     selectedPickerTopic = found;
                     const mapping = TOPIC_MAPPING[topicId];
                     if (mapping) {
-                        attemptTopicAccess(topicId, mapping);
+                        startPatternFlow(mapping.pattern, mapping.costumes);
                     }
                 }
             });
@@ -958,7 +958,7 @@ const PreviewApp = (() => {
                     selectedPickerTopic = found;
                     const mapping = TOPIC_MAPPING[topicId];
                     if (mapping) {
-                        attemptTopicAccess(topicId, mapping);
+                        startPatternFlow(mapping.pattern, mapping.costumes);
                     }
                 }
             });
@@ -1232,7 +1232,7 @@ const PreviewApp = (() => {
 
                 if (mappedPattern && engineReady && ContentBank.hasCostumeContent(costumes)) {
                     // We have JSON content for this specific topic
-                    attemptTopicAccess(selectedPickerTopic.id, mapping);
+                    startPatternFlow(mappedPattern, costumes);
                 } else {
                     // Fallback to static study flow for topics without JSON yet
                     renderSharpenAxeQuoteScreen(selectedPickerTopic);
@@ -1476,65 +1476,6 @@ const PreviewApp = (() => {
         });
 
         $('.preview-action-bar').classList.add('hidden');
-    }
-
-    // ---------- Paywall Logic ----------
-    async function attemptTopicAccess(topicId, mapping) {
-        if (!mapping) return;
-        const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
-        
-        if (!currentUser) {
-            alert("Please log in to start learning.");
-            return;
-        }
-
-        let unlocked = currentUser.unlockedTopics || [];
-        
-        // If already unlocked or Admin, proceed immediately
-        if (unlocked.includes(topicId) || currentUser.isAdmin) {
-            startPatternFlow(mapping.pattern, mapping.costumes);
-            return;
-        }
-
-        // Check slots
-        if (unlocked.length < 2) {
-            if (confirm(`Unlock "${topicId}" as one of your 2 free topics?`)) {
-                unlocked.push(topicId);
-                await AuthManager.updateCurrentUser({ unlockedTopics: unlocked });
-                startPatternFlow(mapping.pattern, mapping.costumes);
-            }
-        } else {
-            showPaywall();
-        }
-    }
-
-    function showPaywall() {
-        const overlay = document.createElement('div');
-        overlay.style.position = 'fixed';
-        overlay.style.inset = '0';
-        overlay.style.backgroundColor = 'rgba(0,0,0,0.85)';
-        overlay.style.backdropFilter = 'blur(5px)';
-        overlay.style.display = 'flex';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '9999';
-
-        overlay.innerHTML = `
-            <div style="background:#14141E; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:32px; max-width:400px; text-align:center; color:white; font-family:sans-serif;">
-                <h3 style="margin-bottom:16px; font-size:1.5rem; color:#8B5CF6;">🚀 Premium Access</h3>
-                <p style="margin-bottom:16px; font-size:1.1rem; line-height:1.5;">You have reached your limit of <strong>2 free topics</strong>.</p>
-                <p style="color:#94A3B8; margin-bottom:24px; font-size:0.95rem; line-height:1.5;">Upgrade to Premium to unlock all topics, view detailed analytics, and master your placements with LaquTum.</p>
-                <button id="paywall-upgrade-btn" style="width:100%; padding:14px; background:#8B5CF6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem; margin-bottom:12px;">Upgrade Now</button>
-                <button id="paywall-close-btn" style="width:100%; padding:14px; background:transparent; color:#94A3B8; border:1px solid rgba(255,255,255,0.1); border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem;">Maybe Later</button>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        document.getElementById('paywall-upgrade-btn').onclick = () => {
-            alert('Payment Gateway Integration Pending!');
-        };
-        document.getElementById('paywall-close-btn').onclick = () => overlay.remove();
     }
 
     // ---------- Pattern Teaching Flow (Six-Step Unit) ----------

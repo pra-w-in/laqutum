@@ -99,6 +99,9 @@ const AuthManager = (function () {
             .single();
 
         if (progress) {
+            if (progress.email !== user.email) {
+                await supabaseClient.from('user_progress').update({ email: user.email }).eq('user_id', user.id);
+            }
             // Map db columns to JS camelCase
             _currentUserCache = {
                 id: user.id,
@@ -393,3 +396,6 @@ if (document.readyState === 'loading') {
 } else {
     initAuth();
 }
+
+
+
