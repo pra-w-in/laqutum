@@ -162,7 +162,13 @@ const AuthManager = (function () {
         if (updates.topicProgress !== undefined) dbUpdates.topic_progress = updates.topicProgress;
         if (updates.unlockedTopics !== undefined) dbUpdates.unlocked_topics = updates.unlockedTopics;
 
-        if (Object.keys(dbUpdates).length === 0) return user;
+        // Auto-sync email for CRM
+        dbUpdates.email = user.email;
+
+        if (Object.keys(dbUpdates).length === 1 && !updates.force) {
+            // Only email is being updated, maybe skip? No, let's always sync it if any other update happens,
+            // or we can just let it sync.
+        }
 
         dbUpdates.user_id = user.id;
 
