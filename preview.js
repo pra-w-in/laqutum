@@ -1531,9 +1531,67 @@ const PreviewApp = (() => {
 
         document.body.appendChild(overlay);
 
-        document.getElementById('paywall-upgrade-btn').onclick = () => {
-            alert('Payment Gateway Integration Pending!');
+        document.getElementById('paywall-upgrade-btn').onclick = async () => {
+            const btn = document.getElementById('paywall-upgrade-btn');
+            btn.textContent = 'Loading Secure Checkout...';
+            btn.disabled = true;
+
+            // Load Razorpay Script dynamically
+            if (typeof window.Razorpay === 'undefined') {
+                await new Promise((resolve) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                    script.onload = resolve;
+                    document.body.appendChild(script);
+                });
+            }
+
+            const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : {};
+            
+            var options = {
+                "key": "rzp_live_TbyTRoh7PHZNPf", // TODO: Put your Razorpay LIVE API Key here
+                "amount": "9900", // Amount is in paise (9900 = 99 INR)
+                "currency": "INR",
+                "name": "LaquTum Premium",
+                "description": "Unlock All Topics & Premium Features",
+                "handler": async function (response) {
+                    // Payment Successful!
+                    overlay.innerHTML = `<div style="background:#14141E; border-radius:16px; padding:32px; text-align:center; color:white;"><h3 style="color:#10B981; margin-bottom:10px;">✅ Payment Successful!</h3><p>Unlocking your premium access...</p></div>`;
+                    
+                    // Unlock all topics instantly in the database
+                    const allTopicIds = typeof allAptitudeTopics !== 'undefined' ? allAptitudeTopics.map(t => t.id) : [];
+                    if (allTopicIds.length > 0 && typeof AuthManager !== 'undefined') {
+                        await AuthManager.updateCurrentUser({ unlockedTopics: allTopicIds });
+                    }
+                    
+                    alert("Welcome to LaquTum Premium! All topics are now permanently unlocked for your account.");
+                    overlay.remove();
+                    
+                    // Refresh the current view to show unlocked topics
+                    if (state === 'PICKER') {
+                        renderTopicPickerPage();
+                    } else {
+                        renderPostResultsChoice();
+                    }
+                },
+                "prefill": {
+                    "name": currentUser.name || "",
+                    "email": currentUser.email || ""
+                },
+                "theme": {
+                    "color": "#8B5CF6"
+                }
+            };
+            
+            var rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', function (response){
+                alert("Payment Failed: " + response.error.description);
+                btn.textContent = 'Upgrade Now';
+                btn.disabled = false;
+            });
+            rzp.open();
         };
+
         document.getElementById('paywall-close-btn').onclick = () => overlay.remove();
     }
 
