@@ -8,7 +8,7 @@ const AuthManager = (function () {
 
     // ─── AUTH METHODS ───────────────────────────────────────────
 
-    async function signUp(name, email, password) {
+    async function signUp(name, email, password, aptitudeLevel) {
         const cleanEmail = (email || '').toLowerCase().trim();
         const cleanName = (name || '').trim();
 
@@ -99,9 +99,6 @@ const AuthManager = (function () {
             .single();
 
         if (progress) {
-            if (progress.email !== user.email) {
-                await supabaseClient.from('user_progress').update({ email: user.email }).eq('user_id', user.id);
-            }
             // Map db columns to JS camelCase
             _currentUserCache = {
                 id: user.id,
@@ -120,15 +117,6 @@ const AuthManager = (function () {
                 isAdmin: progress.is_admin || false,
                 unlockedTopics: progress.unlocked_topics || []
             };
-
-            // Enforce Ban Hammer
-            if (_currentUserCache.isBanned) {
-                alert("Your account has been suspended for violating community guidelines.");
-                await supabaseClient.auth.signOut();
-                _currentUserCache = null;
-                window.location.reload();
-                return null;
-            }
         } else {
             // Fallback if progress row is missing
             _currentUserCache = {
@@ -137,7 +125,10 @@ const AuthManager = (function () {
                 name: user.user_metadata?.full_name || 'Aptitude Student',
                 hasCompletedDiagnostic: false,
                 confidenceStates: {},
-                topicProgress: {}
+                topicProgress: {},
+                isBanned: false,
+                isAdmin: false,
+                unlockedTopics: []
             };
         }
 
@@ -256,6 +247,58 @@ const AuthManager = (function () {
 
     let pendingCallback = null;
 
+    function initCustomAptitudeSelect() {
+        const wrap = document.getElementById('customAptitudeSelect');
+        const trigger = document.getElementById('customSelectTrigger');
+        const label = document.getElementById('customSelectLabel');
+        const hiddenSelect = document.getElementById('signupAptitudeLevel');
+        if (!wrap || !trigger || !label || !hiddenSelect) return;
+
+        const options = wrap.querySelectorAll('.custom-select-option');
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const isOpen = wrap.classList.toggle('open');
+            trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+
+        options.forEach(opt => {
+            opt.addEventListener('click', () => {
+                const val = opt.getAttribute('data-value');
+                const titleEl = opt.querySelector('.option-title');
+                const title = titleEl ? titleEl.textContent.trim() : opt.textContent.trim();
+
+                options.forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+
+                label.textContent = title;
+                label.classList.add('has-value');
+
+                hiddenSelect.value = val;
+                hiddenSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && wrap.classList.contains('open')) {
+                wrap.classList.remove('open');
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.focus();
+            }
+        });
+    }
+
     function openAuthModal(onSuccessCallback) {
         pendingCallback = onSuccessCallback || null;
         const overlay = document.getElementById('authModalOverlay');
@@ -263,6 +306,8 @@ const AuthManager = (function () {
             overlay.classList.remove('hidden');
             overlay.classList.add('active');
         }
+        const wrap = document.getElementById('customAptitudeSelect');
+        if (wrap) wrap.classList.remove('open');
     }
 
     function closeAuthModal() {
@@ -271,25 +316,15 @@ const AuthManager = (function () {
             overlay.classList.remove('active');
             overlay.classList.add('hidden');
         }
+        const wrap = document.getElementById('customAptitudeSelect');
+        if (wrap) wrap.classList.remove('open');
     }
 
     async function init() {
         // Fetch current session on load
-        const user = await getCurrentUser();
+        await getCurrentUser();
         await updateNavbarUI();
-
-        // Hide global loader once auth state is resolved
-        const loader = document.getElementById('global-loader');
-        if (loader) {
-            loader.style.opacity = '0';
-            loader.style.transition = 'opacity 0.4s ease';
-            setTimeout(() => loader.remove(), 400);
-        }
-
-        // If user is logged in, auto-open the app dashboard instead of showing landing page
-        if (user && typeof PreviewApp !== 'undefined') {
-            PreviewApp.open();
-        }
+        initCustomAptitudeSelect();
 
         const closeBtn = document.getElementById('authModalClose');
         if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);
@@ -324,7 +359,8 @@ const AuthManager = (function () {
                 const password = document.getElementById('signupPassword').value;
 
                 try {
-                    const user = await signUp(name, email, password);
+                    const aptLevel = document.getElementById('signupAptitudeLevel') ? document.getElementById('signupAptitudeLevel').value : '';
+                    const user = await signUp(name, email, password, aptLevel);
                     alert('Debug Success: Account created!');
                     closeAuthModal();
                     if (pendingCallback) {
@@ -364,8 +400,13 @@ const AuthManager = (function () {
                         signinError.textContent = err.message;
                         signinError.classList.remove('hidden');
                     }
-                }
+                                }
             });
+        }
+        
+        // Auto-start App
+        if (typeof PreviewApp !== 'undefined') {
+            PreviewApp.open();
         }
     }
 
@@ -396,6 +437,3 @@ if (document.readyState === 'loading') {
 } else {
     initAuth();
 }
-
-
-

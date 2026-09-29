@@ -9,159 +9,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta name="color-scheme" content="dark">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="preview.css">
 </head>
 <body>
-    <!-- Global App Loader -->
-    <div id="global-loader" style="position:fixed; inset:0; background:#0B0B13; z-index:999999; display:flex; justify-content:center; align-items:center;">
-        <div style="width:48px; height:48px; border:4px solid rgba(255,255,255,0.05); border-top-color:#8B5CF6; border-radius:50%; animation:global-spin 1s linear infinite;"></div>
-    </div>
-    <style>@keyframes global-spin { to { transform: rotate(360deg); } }</style>
-
-    <!-- Floating Particles Background -->
-    <div class="particles" id="particles"></div>
-
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="nav-container">
-            <a href="#" class="nav-logo">
-                <span class="logo-icon">⚡</span>
-                <span class="logo-text">Laqu<span class="logo-accent">Tum</span></span>
-            </a>
-            <div class="nav-links" id="navLinks">
-                <a href="#features" class="nav-link">Features</a>
-                <a href="#topics" class="nav-link">Topics</a>
-                <a href="#how-it-works" class="nav-link">How It Works</a>
-                <a href="#preview" class="nav-link">Preview</a>
-                <a href="#pricing" class="nav-link">Pricing</a>
-                <a href="#faq" class="nav-link">FAQ</a>
-            </div>
-            <div class="nav-auth-container" id="navAuthContainer"></div>
-            <a href="#pricing" class="nav-cta">Get Access Now</a>
-            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Bottom Navigation (Mobile Only) -->
-    <div class="bottom-nav">
-        <a href="#hero" class="bottom-nav-item active">
-            <span class="bottom-nav-icon">🏠</span>
-            <span class="bottom-nav-text">Home</span>
-        </a>
-        <a href="#topics" class="bottom-nav-item">
-            <span class="bottom-nav-icon">📚</span>
-            <span class="bottom-nav-text">Topics</span>
-        </a>
-        <a href="#preview" class="bottom-nav-item">
-            <span class="bottom-nav-icon">⚡</span>
-            <span class="bottom-nav-text">Preview</span>
-        </a>
-        <a href="#pricing" class="bottom-nav-item">
-            <span class="bottom-nav-icon">💎</span>
-            <span class="bottom-nav-text">Access</span>
-        </a>
-    </div>
-
-
-    <!-- Hero Section -->
-    <section class="hero" id="hero">
-        <div class="hero-glow"></div>
-        <div class="dashboard-container">
-            <!-- Top Cards -->
-            <div class="dashboard-top-cards">
-                <a href="#preview" class="dash-card dash-card-left">
-                    <div class="dash-card-header">
-                        <span class="dash-card-label">PRACTICE</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-1)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-                    </div>
-                    <h2 class="dash-card-title">Tap to view<br>mock tests</h2>
-                    <div class="dash-card-icon-area">
-                        <div class="dash-icon-placeholder">🎯</div>
-                    </div>
-                </a>
-                
-                <div class="dash-card dash-card-right">
-                    <div class="dash-card-header">
-                        <span class="dash-card-label">APTITUDE</span>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-3)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-                    </div>
-                    <h2 class="dash-card-title">Solve aptitude<br><span class="highlight-bold">50% faster</span><br>than ever before</h2>
-                    <a href="#pricing" class="dash-btn-black">OPEN ACCOUNT</a>
-                </div>
-            </div>
-
-            <!-- Banner Slider -->
-            <div class="dash-slider-wrapper">
-                <div class="dash-slider-track" id="dashSlider">
-                    <div class="dash-slider-slide slide-1">
-                        <div class="slide-content">
-                            <span class="slide-tag">Insight</span>
-                            <p>"Here is exactly why 73% of people who tried this problem picked option B instead of option C."</p>
-                            <button class="slide-btn">Read More</button>
-                        </div>
-                    </div>
-                    <div class="dash-slider-slide slide-2">
-                        <div class="slide-content">
-                            <span class="slide-tag">Pro Tip</span>
-                            <p>Stop using x and y variables! Learn the percentage substitution method and save 45 seconds per question.</p>
-                            <button class="slide-btn">Learn How</button>
-                        </div>
-                    </div>
-                    <div class="dash-slider-slide slide-3">
-                        <div class="slide-content">
-                            <span class="slide-tag">Secret</span>
-                            <p>Most IT companies reuse the exact same logic patterns in their placement tests. Master the pattern today.</p>
-                            <button class="slide-btn">View Patterns</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="slider-dots" id="sliderDots"></div>
-            </div>
-
-            <!-- Action Grid (Quick Links) -->
-            <div class="dashboard-action-section">
-                <h3 class="dash-section-title">Course Overview</h3>
-                <div class="dash-action-card">
-                    <div class="dash-action-grid">
-                        <a href="#topics" class="dash-action-item">
-                            <div class="dash-action-icon-circle blue">
-                                <span>📚</span>
-                            </div>
-                            <span class="dash-action-text">50+ Topics</span>
-                        </a>
-                        <a href="#topics" class="dash-action-item">
-                            <div class="dash-action-icon-circle purple">
-                                <span>📝</span>
-                            </div>
-                            <span class="dash-action-text">500+ Qs</span>
-                        </a>
-                        <a href="#preview" class="dash-action-item">
-                            <div class="dash-action-icon-circle orange">
-                                <span>⏱️</span>
-                            </div>
-                            <span class="dash-action-text">48 Hours</span>
-                        </a>
-                        <a href="#pricing" class="dash-action-item">
-                            <div class="dash-action-icon-circle green">
-                                <span>💡</span>
-                            </div>
-                            <span class="dash-action-text">Solutions</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- ===== Auth Modal (Sign Up / Sign In) ===== -->
     <div class="auth-modal-overlay hidden" id="authModalOverlay">
         <div class="auth-modal-card">
-            <button class="auth-modal-close" id="authModalClose">&times;</button>
+            
             
             <!-- Form: Sign Up -->
             <form class="auth-form" id="formSignup">
@@ -169,6 +26,56 @@
                     <h3>Create an Account</h3>
                     <p>Save your aptitude score, baseline analysis, and topic progress.</p>
                 </div>
+                
+                <div class="auth-input-group auth-select-group">
+                    <label for="signupAptitudeLevel">How well are you in aptitude?</label>
+                    <div class="custom-select-wrap" id="customAptitudeSelect">
+                        <button type="button" class="custom-select-trigger" id="customSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+                            <span class="custom-select-label" id="customSelectLabel">Select your level</span>
+                            <span class="custom-select-arrow">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </span>
+                        </button>
+                        <div class="custom-select-dropdown" id="customSelectDropdown" role="listbox">
+                            <div class="custom-select-option" data-value="new" role="option">
+                                <div class="option-content">
+                                    <span class="option-title">New to aptitude</span>
+                                    <span class="option-desc">Starting from scratch</span>
+                                </div>
+                                <span class="option-check">✓</span>
+                            </div>
+                            <div class="custom-select-option" data-value="beginner" role="option">
+                                <div class="option-content">
+                                    <span class="option-title">Beginner</span>
+                                    <span class="option-desc">Know the basic formulas & concepts</span>
+                                </div>
+                                <span class="option-check">✓</span>
+                            </div>
+                            <div class="custom-select-option" data-value="intermediate" role="option">
+                                <div class="option-content">
+                                    <span class="option-title">Intermediate</span>
+                                    <span class="option-desc">Can solve some questions, need practice</span>
+                                </div>
+                                <span class="option-check">✓</span>
+                            </div>
+                            <div class="custom-select-option" data-value="advanced" role="option">
+                                <div class="option-content">
+                                    <span class="option-title">Advanced</span>
+                                    <span class="option-desc">Looking for speed, shortcuts & accuracy</span>
+                                </div>
+                                <span class="option-check">✓</span>
+                            </div>
+                        </div>
+                        <select id="signupAptitudeLevel" required class="hidden-accessible-select" tabindex="-1">
+                            <option value="" disabled selected>Select your level</option>
+                            <option value="new">New to aptitude</option>
+                            <option value="beginner">Beginner (Know basics)</option>
+                            <option value="intermediate">Intermediate (Can solve some)</option>
+                            <option value="advanced">Advanced (Looking for speed)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="auth-input-group">
                     <label>Full Name</label>
                     <input type="text" id="signupName" placeholder="Enter your full name" required>
@@ -248,6 +155,23 @@
                 <div id="lesson-content" style="width:100%;"></div>
             </div>
 
+            <!-- Screen: 1vs1 Battle Arena -->
+            <div class="preview-screen" id="screen-battle">
+                <div id="battle-content" style="width:100%;max-width:100%;"></div>
+            </div>
+
+        </div>
+
+        <!-- QR Camera Scanner Modal -->
+        <div class="qr-scanner-modal hidden" id="qr-scanner-modal">
+            <div class="qr-scanner-container">
+                <div class="qr-scanner-header">
+                    <h3>Scan Opponent's QR</h3>
+                    <button class="qr-scanner-close" id="qr-scanner-close">&times;</button>
+                </div>
+                <div id="qr-reader" class="qr-reader-viewport"></div>
+                <div class="qr-scanner-hint">Point your camera at the QR code on your friend's screen</div>
+            </div>
         </div>
 
         <!-- Bottom Action Bar (for quiz/survey) -->
@@ -282,11 +206,20 @@
                 </span>
                 <span class="app-nav-text">Topics</span>
             </button>
-            <button class="app-bottom-nav-item" id="app-nav-access">
+            <button class="app-bottom-nav-item" id="app-nav-battle">
                 <span class="app-nav-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m13 19 6-6" />
+                        <path d="M14.5 17.5 3.586 6.586A2 2 0 0 1 3 5.172V3h2.172a2 2 0 0 1 1.414.586L17.5 14.5" />
+                        <path d="m14.828 6.172 2.586-2.586A2 2 0 0 1 18.828 3H21v2.172a2 2 0 0 1-.586 1.414l-2.586 2.586" />
+                        <path d="m16 16 4 4" />
+                        <path d="m19 21 2-2" />
+                        <path d="m5 14 4 4" />
+                        <path d="m5 21-2-2" />
+                        <path d="M7.5 16.5 4 20" />
+                    </svg>
                 </span>
-                <span class="app-nav-text">Access</span>
+                <span class="app-nav-text">1vs1</span>
             </button>
         </div>
 
@@ -295,11 +228,14 @@
 
     <script src="supabase.min.js"></script>
     <script src="supabase-config.js"></script>
+    <script src="qrcode.min.js"></script>
+    <script src="html5-qrcode.min.js"></script>
     <script src="script.js"></script>
     <script src="engine/content-loader.js"></script>
     <script src="engine/confidence-tracker.js"></script>
     <script src="engine/selection-engine.js"></script>
     <script src="preview.js"></script>
+    <script src="battle.js"></script>
     <script src="auth.js"></script>
 </body>
 </html>

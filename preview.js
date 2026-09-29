@@ -307,10 +307,10 @@ const PreviewApp = (() => {
         const target = document.getElementById(id);
         if (target) target.classList.add('active');
 
-        // Hide bottom nav on all screens except the main dashboard screens
+        // Hide bottom nav on all screens except the main dashboard and battle screens
         const nav = document.getElementById('overlay-bottom-nav');
         if (nav) {
-            if (id === 'screen-dashboard') {
+            if (id === 'screen-dashboard' || id === 'screen-battle') {
                 nav.style.display = 'flex';
             } else {
                 nav.style.display = 'none';
@@ -836,17 +836,22 @@ const PreviewApp = (() => {
 
         container.innerHTML = `
             <div class="user-home-wrap">
-                <!-- Hero Title -->
+                <!-- Hero Title & Visual Banner (Visual shows on PC/Laptop, hidden on Mobile) -->
                 <div class="user-home-hero">
-                    <h1 class="user-home-title">Crack the <span class="highlight-violet">pattern</span>,<br>not your head</h1>
-                    <div class="user-home-pill">
-                        <span class="pill-dot">⚡</span>
-                        <span>Aptitude Pattern Model</span>
-                        <span class="pill-refresh">🔄</span>
+                    <div class="user-home-hero-text">
+                        <h1 class="user-home-title">Crack the <span class="highlight-violet">pattern</span>,<br>not your head</h1>
+                        <div class="user-home-pill">
+                            <span class="pill-dot">⚡</span>
+                            <span>Aptitude Pattern Model</span>
+                            <span class="pill-refresh">🔄</span>
+                        </div>
+                    </div>
+                    <div class="user-home-hero-visual">
+                        <img src="assests/hero-illustration.png" alt="Aptitude Preparation" class="hero-visual-img" loading="eager" />
                     </div>
                 </div>
 
-                <!-- 2 Auto-Scrolling Marquee Topic Rows (Moving Right-to-Left Automatically) -->
+                <!-- Continuous Smooth Left-to-Right Moving Topic Chips -->
                 <div class="horizontal-chips-wrapper">
                     <div class="marquee-track row-marquee-1">
                         <div class="marquee-content">
@@ -855,6 +860,11 @@ const PreviewApp = (() => {
                             <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
                             <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
                             <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
+                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
+                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
+                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
+                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
+                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
                         </div>
                         <div class="marquee-content" aria-hidden="true">
                             <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
@@ -862,23 +872,38 @@ const PreviewApp = (() => {
                             <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
                             <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
                             <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
+                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
+                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
+                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
+                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
+                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
                         </div>
                     </div>
 
                     <div class="marquee-track row-marquee-2">
                         <div class="marquee-content">
+                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
                             <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
                             <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
+                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
+                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
+                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
+                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
+                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
+                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
+                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
                         </div>
                         <div class="marquee-content" aria-hidden="true">
+                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
                             <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
                             <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
+                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
+                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
+                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
+                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
+                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
+                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
+                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
                         </div>
                     </div>
                 </div>
@@ -889,45 +914,77 @@ const PreviewApp = (() => {
                     <span class="section-filter-icon">≡</span>
                 </div>
 
-                <!-- Company Target Cards (2x2 Vertical Stacked Grid) -->
+                <!-- Company Target Cards (Visual 4-Column Grid) -->
                 <div class="company-cards-grid">
-                    <div class="company-card" data-topic="percentages" id="card-infosys">
+                    <div class="company-card card-purple" data-topic="percentages" id="card-infosys">
+                        <div class="company-card-img-wrap">
+                            <img src="assests/infosys.png" alt="Infosys & TCS" class="company-card-img" />
+                        </div>
                         <div class="company-card-illustration-wrap bg-purple">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-3.05 11a22.35 22.35 0 0 1-3.95 2z"/><path d="M9 12l-5 5"/><path d="M12 9l5-5"/></svg>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-3.05 11a22.35 22.35 0 0 1-3.95 2z"/><path d="M9 12l-5 5"/><path d="M12 9l5-5"/></svg>
                         </div>
                         <div class="company-card-content">
-                            <h3>Crack Infosys & TCS</h3>
-                            <p>Master high-frequency speed arithmetic and percentage shortcuts.</p>
+                            <h3 class="company-card-title">Crack Infosys & TCS</h3>
+                            <p class="company-card-desc">Master high-frequency speed arithmetic and percentage shortcuts.</p>
+                            <div class="company-card-action">
+                                <span class="company-action-btn btn-purple">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="company-card" data-topic="seating-linear" id="card-accenture">
+                    <div class="company-card card-pink" data-topic="seating-linear" id="card-accenture">
+                        <div class="company-card-img-wrap">
+                            <img src="assests/accenture.png" alt="Accenture & Wipro" class="company-card-img img-accenture" />
+                        </div>
                         <div class="company-card-illustration-wrap bg-pink">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                         </div>
                         <div class="company-card-content">
-                            <h3>Crack Accenture & Wipro</h3>
-                            <p>Recognize pattern knots in logical reasoning & seating arrangements.</p>
+                            <h3 class="company-card-title">Crack Accenture & Wipro</h3>
+                            <p class="company-card-desc">Recognize pattern knots in logical reasoning & seating arrangements.</p>
+                            <div class="company-card-action">
+                                <span class="company-action-btn btn-pink">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="company-card" data-topic="probability" id="card-amazon">
-                        <div class="company-card-illustration-wrap bg-indigo">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l3 12"/><path d="M13 3l3 6-3 12"/><path d="M2 9h20"/></svg>
+                    <div class="company-card card-blue" data-topic="probability" id="card-amazon">
+                        <div class="company-card-img-wrap">
+                            <img src="assests/amazon_4k.png" alt="Amazon & Product" class="company-card-img" />
+                        </div>
+                        <div class="company-card-illustration-wrap bg-blue">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l3 12"/><path d="M13 3l3 6-3 12"/><path d="M2 9h20"/></svg>
                         </div>
                         <div class="company-card-content">
-                            <h3>Crack Amazon & Product</h3>
-                            <p>Conquer probability, permutations, and speed algebra questions.</p>
+                            <h3 class="company-card-title">Crack Amazon & Product</h3>
+                            <p class="company-card-desc">Conquer probability, permutations, and speed algebra questions.</p>
+                            <div class="company-card-action">
+                                <span class="company-action-btn btn-blue">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="company-card" data-topic="hcf-lcm" id="card-gate">
-                        <div class="company-card-illustration-wrap bg-teal">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+                    <div class="company-card card-green" data-topic="hcf-lcm" id="card-gate">
+                        <div class="company-card-img-wrap">
+                            <img src="assests/iitm.png" alt="GATE & Aptitude" class="company-card-img" />
+                        </div>
+                        <div class="company-card-illustration-wrap bg-green">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
                         </div>
                         <div class="company-card-content">
-                            <h3>Crack GATE & Aptitude</h3>
-                            <p>Master modular arithmetic, prime factors, and HCF/LCM patterns.</p>
+                            <h3 class="company-card-title">Crack GATE & Aptitude</h3>
+                            <p class="company-card-desc">Master modular arithmetic, prime factors, and HCF/LCM patterns.</p>
+                            <div class="company-card-action">
+                                <span class="company-action-btn btn-green">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -943,7 +1000,7 @@ const PreviewApp = (() => {
                     selectedPickerTopic = found;
                     const mapping = TOPIC_MAPPING[topicId];
                     if (mapping) {
-                        attemptTopicAccess(topicId, mapping);
+                        checkPaywallAndStart(topicId, () => startPatternFlow(mapping.pattern, mapping.costumes));
                     }
                 }
             });
@@ -958,7 +1015,7 @@ const PreviewApp = (() => {
                     selectedPickerTopic = found;
                     const mapping = TOPIC_MAPPING[topicId];
                     if (mapping) {
-                        attemptTopicAccess(topicId, mapping);
+                        checkPaywallAndStart(topicId, () => startPatternFlow(mapping.pattern, mapping.costumes));
                     }
                 }
             });
@@ -972,6 +1029,7 @@ const PreviewApp = (() => {
     function wireAppBottomNav(activeId) {
         const homeBtn = document.getElementById('app-nav-home');
         const topicsBtn = document.getElementById('app-nav-topics');
+        const battleBtn = document.getElementById('app-nav-battle');
         const accessBtn = document.getElementById('app-nav-access');
 
         const nav = document.getElementById('overlay-bottom-nav');
@@ -993,6 +1051,14 @@ const PreviewApp = (() => {
                 pickerPage = 0;
                 selectedPickerTopic = null;
                 renderTopicPickerPage();
+            });
+        }
+        if (battleBtn && !battleBtn.dataset.wired) {
+            battleBtn.dataset.wired = 'true';
+            battleBtn.addEventListener('click', () => {
+                if (typeof BattleManager !== 'undefined') {
+                    BattleManager.openLobby();
+                }
             });
         }
         if (accessBtn && !accessBtn.dataset.wired) {
@@ -1124,7 +1190,7 @@ const PreviewApp = (() => {
         container.querySelectorAll('.pattern-picker-card').forEach(card => {
             card.addEventListener('click', () => {
                 const pattern = card.dataset.pattern;
-                startPatternFlow(pattern);
+                checkPaywallAndStart(pattern, () => startPatternFlow(pattern));
             });
         });
 
@@ -1231,11 +1297,9 @@ const PreviewApp = (() => {
                 }
 
                 if (mappedPattern && engineReady && ContentBank.hasCostumeContent(costumes)) {
-                    // We have JSON content for this specific topic
-                    attemptTopicAccess(selectedPickerTopic.id, mapping);
+                    checkPaywallAndStart(selectedPickerTopic.id, () => startPatternFlow(mappedPattern, costumes));
                 } else {
-                    // Fallback to static study flow for topics without JSON yet
-                    renderSharpenAxeQuoteScreen(selectedPickerTopic);
+                    checkPaywallAndStart(selectedPickerTopic.id, () => renderSharpenAxeQuoteScreen(selectedPickerTopic));
                 }
             }
         });
@@ -1478,13 +1542,14 @@ const PreviewApp = (() => {
         $('.preview-action-bar').classList.add('hidden');
     }
 
-    // ---------- Paywall Logic ----------
-    async function attemptTopicAccess(topicId, mapping) {
-        if (!mapping) return;
+
+    async function checkPaywallAndStart(topicId, onSuccessCallback) {
         const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
-        
         if (!currentUser) {
             alert("Please log in to start learning.");
+            if (typeof AuthManager !== 'undefined') {
+                AuthManager.openAuthModal(() => { if (typeof PreviewApp !== 'undefined') PreviewApp.open(); });
+            }
             return;
         }
 
@@ -1492,16 +1557,18 @@ const PreviewApp = (() => {
         
         // If already unlocked or Admin, proceed immediately
         if (unlocked.includes(topicId) || currentUser.isAdmin) {
-            startPatternFlow(mapping.pattern, mapping.costumes);
+            onSuccessCallback();
             return;
         }
 
         // Check slots
         if (unlocked.length < 2) {
-            if (confirm(`Unlock "${topicId}" as one of your 2 free topics?`)) {
+            if (confirm("Unlock this topic as one of your 2 free topics?")) {
                 unlocked.push(topicId);
-                await AuthManager.updateCurrentUser({ unlockedTopics: unlocked });
-                startPatternFlow(mapping.pattern, mapping.costumes);
+                if (typeof AuthManager !== 'undefined') {
+                    await AuthManager.updateCurrentUser({ unlockedTopics: unlocked });
+                }
+                onSuccessCallback();
             }
         } else {
             showPaywall();
@@ -1519,15 +1586,10 @@ const PreviewApp = (() => {
         overlay.style.alignItems = 'center';
         overlay.style.zIndex = '9999';
 
-        overlay.innerHTML = `
-            <div style="background:#14141E; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:32px; max-width:400px; text-align:center; color:white; font-family:sans-serif;">
-                <h3 style="margin-bottom:16px; font-size:1.5rem; color:#8B5CF6;">🚀 Premium Access</h3>
-                <p style="margin-bottom:16px; font-size:1.1rem; line-height:1.5;">You have reached your limit of <strong>2 free topics</strong>.</p>
-                <p style="color:#94A3B8; margin-bottom:24px; font-size:0.95rem; line-height:1.5;">Upgrade to Premium to unlock all topics, view detailed analytics, and master your placements with LaquTum.</p>
-                <button id="paywall-upgrade-btn" style="width:100%; padding:14px; background:#8B5CF6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem; margin-bottom:12px;">Upgrade Now</button>
-                <button id="paywall-close-btn" style="width:100%; padding:14px; background:transparent; color:#94A3B8; border:1px solid rgba(255,255,255,0.1); border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem;">Maybe Later</button>
-            </div>
-        `;
+        overlay.innerHTML = "\n            <div style=\"background:#14141E; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:32px; max-width:400px; text-align:center; color:white; font-family:sans-serif;\">\n                <h3 style=\"margin-bottom:16px; font-size:1.5rem; color:#8B5CF6;\">? Premium Access</h3>\n                <p style=\"margin-bottom:16px; font-size:1.1rem; line-height:1.5;\">You have reached your limit of <strong>2 free topics</strong>.</p>\n                <p style=\"color:#94A3B8; margin-bottom:24px; font-size:0.95rem; line-height:1.5;\">Upgrade to Premium to unlock all topics, view detailed analytics, and master your placements with LaquTum.</p>\n                <button id=\"paywall-upgrade-btn\" style=\"width:100%; padding:14px; background:#8B5CF6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem; margin-bottom:12px;\">Upgrade Now</button>\n                <button id=\"paywall-close-btn\" style=\"width:100%; padding:14px; background:transparent; color:#94A3B8; border:1px solid rgba(255,255,255,0.1); border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem;\">Maybe Later</button>\n            </div>\n        ";
+        
+        // Let's replace the quotes with backticks safely in JS side
+        overlay.innerHTML = overlay.innerHTML.replace(/'/g, "");
 
         document.body.appendChild(overlay);
 
@@ -1549,14 +1611,14 @@ const PreviewApp = (() => {
             const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : {};
             
             var options = {
-                "key": "rzp_live_TbyTRoh7PHZNPf", // TODO: Put your Razorpay LIVE API Key here
+                "key": "rzp_live_TbyTRoh7PHZNPf", // Razorpay LIVE API Key
                 "amount": "9900", // Amount is in paise (9900 = 99 INR)
                 "currency": "INR",
                 "name": "LaquTum Premium",
                 "description": "Unlock All Topics & Premium Features",
                 "handler": async function (response) {
                     // Payment Successful!
-                    overlay.innerHTML = `<div style="background:#14141E; border-radius:16px; padding:32px; text-align:center; color:white;"><h3 style="color:#10B981; margin-bottom:10px;">✅ Payment Successful!</h3><p>Unlocking your premium access...</p></div>`;
+                    overlay.innerHTML = "<div style=\"background:#14141E; border-radius:16px; padding:32px; text-align:center; color:white;\"><h3 style=\"color:#10B981; margin-bottom:10px;\">? Payment Successful!</h3><p>Unlocking your premium access...</p></div>";
                     
                     // Unlock all topics instantly in the database
                     const allTopicIds = typeof allAptitudeTopics !== 'undefined' ? allAptitudeTopics.map(t => t.id) : [];
@@ -2135,13 +2197,9 @@ const PreviewApp = (() => {
             hearts = currentUser.hearts || 5;
             updateStats();
 
-            // Check if user has already done diagnostic
-            if (currentUser.hasCompletedDiagnostic && engineReady) {
-                quizResults = currentUser.quizResults || [];
-                renderPostResultsChoice();
-            } else {
-                renderSurvey();
-            }
+            // Bypass Survey and Diagnostic Quiz as requested by user
+            quizResults = currentUser.quizResults || [];
+            renderPostResultsChoice();
         }
     }
 
@@ -2218,5 +2276,5 @@ const PreviewApp = (() => {
         }
     }
 
-    return { open, close, init };
+    return { open, close, init, showScreen, wireAppBottomNav, renderPostResultsChoice };
 })();

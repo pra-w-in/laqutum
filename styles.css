@@ -2355,6 +2355,172 @@ button:active, .btn:active, .option-card:active, .topic-card:active {
     box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.15);
 }
 
+/* Custom Aptitude Level Select Dropdown */
+.custom-select-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    color: #94a3b8;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.25s ease;
+}
+
+.custom-select-trigger:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(168, 85, 247, 0.4);
+}
+
+.custom-select-wrap.open .custom-select-trigger,
+.custom-select-trigger:focus-visible {
+    border-color: #a855f7;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.18);
+}
+
+.custom-select-label.has-value {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.custom-select-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a855f7;
+}
+
+.custom-select-arrow svg {
+    display: block;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transform-origin: center center;
+}
+
+.custom-select-wrap.open .custom-select-arrow svg {
+    transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    width: 100%;
+    background: #141525;
+    border: 1.5px solid rgba(168, 85, 247, 0.35);
+    border-radius: 16px;
+    padding: 8px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(168, 85, 247, 0.15);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    box-sizing: border-box;
+}
+
+.custom-select-wrap.open .custom-select-dropdown {
+    display: flex;
+    animation: customDropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes customDropdownFadeIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.custom-select-option {
+    padding: 12px 14px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: transparent;
+    user-select: none;
+}
+
+.custom-select-option:hover {
+    background: rgba(168, 85, 247, 0.14);
+}
+
+.custom-select-option.selected {
+    background: rgba(168, 85, 247, 0.22);
+}
+
+.custom-select-option .option-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.custom-select-option .option-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.custom-select-option.selected .option-title {
+    color: #c084fc;
+}
+
+.custom-select-option .option-desc {
+    font-size: 0.74rem;
+    color: #94a3b8;
+}
+
+.custom-select-option .option-check {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #a855f7;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all 0.2s ease;
+}
+
+.custom-select-option.selected .option-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Fallback & hidden select accessibility */
+.hidden-accessible-select {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    color-scheme: dark;
+}
+
+.auth-input-group select,
+select {
+    color-scheme: dark;
+}
+
+.auth-input-group select option,
+select option {
+    background-color: #161726 !important;
+    color: #ffffff !important;
+}
+
 .auth-input-group input:-webkit-autofill,
 .auth-input-group input:-webkit-autofill:hover,
 .auth-input-group input:-webkit-autofill:focus,
