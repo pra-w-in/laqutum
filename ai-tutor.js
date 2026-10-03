@@ -15,12 +15,25 @@ const AITutor = (() => {
      * Retrieve active API Key from localStorage or config
      */
     function getActiveApiKey() {
+        const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
+        const configKey = (config && config.API_KEY) ? config.API_KEY.trim() : '';
+
         if (typeof localStorage !== 'undefined') {
             const stored = localStorage.getItem('laqutum_ai_key');
-            if (stored && stored.trim()) return stored.trim();
+            if (stored && stored.trim()) {
+                const trimmed = stored.trim();
+                // If stored key matches known blocked key, clear and substitute config key
+                if (trimmed.includes('63L6ewrAnI4XYd4mjmKEMuA') || trimmed.includes('API_KEY_SERVICE_BLOCKED')) {
+                    localStorage.removeItem('laqutum_ai_key');
+                    if (configKey) {
+                        localStorage.setItem('laqutum_ai_key', configKey);
+                        return configKey;
+                    }
+                }
+                return trimmed;
+            }
         }
-        const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-        return (config && config.API_KEY) ? config.API_KEY.trim() : '';
+        return configKey;
     }
 
     /**
@@ -498,6 +511,44 @@ const AITutor = (() => {
             return;
         }
 
+        // Check if user is pasting an API key directly in chat (e.g. AQ.Ab8... or AIzaSy...)
+        const isKeyPattern = !attachedImage && /^(AQ\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35})$/.test(text.trim());
+        if (isKeyPattern) {
+            const keyToTest = text.trim();
+            if (textarea) {
+                textarea.value = '';
+                textarea.style.height = 'auto';
+            }
+            const masked = keyToTest.length > 10 ? (keyToTest.substring(0, 6) + '...' + keyToTest.slice(-4)) : keyToTest;
+            messages.push({
+                role: 'user',
+                text: `🔑 Activated API Key: \`${masked}\``,
+                timestamp: Date.now()
+            });
+            isThinking = true;
+            updateFeedUI();
+
+            const testResult = await testApiKey(keyToTest);
+            isThinking = false;
+            if (testResult.success) {
+                localStorage.setItem('laqutum_ai_key', keyToTest);
+                if (window.VERTEX_AI_CONFIG) window.VERTEX_AI_CONFIG.API_KEY = keyToTest;
+                messages.push({
+                    role: 'model',
+                    text: `✅ **Google Gemini API Connected!**\n\nYour key is active and successfully verified live with Google Gemini.\n\nYou can now ask any question, topic, or concept — I will teach you using the **LaquTum Way of Learning**!`,
+                    timestamp: Date.now()
+                });
+            } else {
+                messages.push({
+                    role: 'model',
+                    text: `⚠️ **Key Verification Notice:**\n${testResult.message}\n\nPlease check your key in [Google AI Studio](https://aistudio.google.com/app/apikey).`,
+                    timestamp: Date.now()
+                });
+            }
+            updateFeedUI();
+            return;
+        }
+
         const userMsg = {
             role: 'user',
             text: text,
@@ -605,12 +656,18 @@ const AITutor = (() => {
      */
     async function queryVertexAI(userQuery, imageObj) {
         const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-        const apiKey = getActiveApiKey();
+        const activeKey = getActiveApiKey();
+        const configKey = (config && config.API_KEY) ? config.API_KEY.trim() : '';
         const accessToken = config ? config.ACCESS_TOKEN : '';
         const model = (config && config.MODEL) ? config.MODEL : 'gemini-flash-latest';
 
+        // Gather candidate keys to try (active first, config fallback)
+        const keysToTry = [];
+        if (activeKey) keysToTry.push(activeKey);
+        if (configKey && !keysToTry.includes(configKey)) keysToTry.push(configKey);
+
         // 1. IF API KEY IS PRESENT
-        if (apiKey) {
+        if (keysToTry.length > 0) {
             // Build parts
             const parts = [];
             if (imageObj && imageObj.base64) {
@@ -654,96 +711,99 @@ const AITutor = (() => {
             const body = {
                 contents: contents,
                 system_instruction: {
-                    parts: [{ text: config.SYSTEM_INSTRUCTION || 'Solve using the 4-step LaquTum Way of Learning.' }]
+                    parts: [{ text: (config && config.SYSTEM_INSTRUCTION) || 'Solve using the 4-step LaquTum Way of Learning.' }]
                 },
                 generationConfig: {
-                    temperature: config.TEMPERATURE || 0.2,
-                    topP: config.TOP_P || 0.95,
-                    maxOutputTokens: config.MAX_OUTPUT_TOKENS || 2048
+                    temperature: (config && config.TEMPERATURE) || 0.2,
+                    topP: (config && config.TOP_P) || 0.95,
+                    maxOutputTokens: (config && config.MAX_OUTPUT_TOKENS) || 2048
                 }
             };
 
-            // Prepare connection attempts based on key format
-            const attempts = [];
+            let lastErrDetail = '';
 
-            // Standard Gemini API Key endpoint (?key=)
-            attempts.push({
-                name: 'Gemini API (?key=)',
-                url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            for (const currentKey of keysToTry) {
+                const attempts = [];
 
-            // Gemini API with x-goog-api-key header
-            attempts.push({
-                name: 'Gemini API (Header)',
-                url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': apiKey
-                }
-            });
-
-            // If key starts with AQ. (Google Cloud token format / Authentication key):
-            if (apiKey.startsWith('AQ.')) {
+                // Standard Gemini API Key endpoint (?key=)
                 attempts.push({
-                    name: 'Generative Language (Bearer)',
+                    name: 'Gemini API (?key=)',
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(currentKey)}`,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                // Gemini API with x-goog-api-key header
+                attempts.push({
+                    name: 'Gemini API (Header)',
                     url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                        'x-goog-api-key': apiKey
+                        'x-goog-api-key': currentKey
                     }
                 });
-            }
 
-            let serviceBlocked = false;
-            let lastErrDetail = '';
-
-            for (const attempt of attempts) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-                    const res = await fetch(attempt.url, {
-                        method: 'POST',
-                        headers: attempt.headers,
-                        body: JSON.stringify(body),
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.candidates && data.candidates[0]?.content?.parts) {
-                            return data.candidates[0].content.parts.map(p => p.text).join('\n');
+                // If key starts with AQ.
+                if (currentKey.startsWith('AQ.')) {
+                    attempts.push({
+                        name: 'Generative Language (Bearer)',
+                        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentKey}`,
+                            'x-goog-api-key': currentKey
                         }
-                    } else {
-                        const errData = await res.json().catch(() => ({}));
-                        const reason = errData.error?.details?.[0]?.reason || '';
-                        const msg = errData.error?.message || `HTTP ${res.status}`;
-                        lastErrDetail = msg;
-                        if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED') || reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED') {
-                            if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED')) {
-                                serviceBlocked = true;
+                    });
+                }
+
+                let keyRejected = false;
+
+                for (const attempt of attempts) {
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+                        const res = await fetch(attempt.url, {
+                            method: 'POST',
+                            headers: attempt.headers,
+                            body: JSON.stringify(body),
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.candidates && data.candidates[0]?.content?.parts) {
+                                // If this key worked, store it in localStorage so future requests use this valid key
+                                if (typeof localStorage !== 'undefined') {
+                                    localStorage.setItem('laqutum_ai_key', currentKey);
+                                }
+                                return data.candidates[0].content.parts.map(p => p.text).join('\n');
+                            }
+                        } else {
+                            const errData = await res.json().catch(() => ({}));
+                            const reason = errData.error?.details?.[0]?.reason || '';
+                            const msg = errData.error?.message || `HTTP ${res.status}`;
+                            lastErrDetail = msg;
+                            if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED') || res.status === 400 || res.status === 403) {
+                                keyRejected = true;
                                 break;
                             }
                         }
+                    } catch (e) {
+                        lastErrDetail = e.message;
                     }
-                } catch (e) {
-                    lastErrDetail = e.message;
+                }
+
+                if (keyRejected) {
+                    // Try next candidate key
+                    continue;
                 }
             }
 
-            // If API key failed, report the exact Google error rather than hiding it with a generic fallback!
-            console.error('[AITutor] Google API failed with error:', lastErrDetail);
-            
-            if (serviceBlocked) {
-                return `**⚠️ Google Gemini API Error: API_KEY_SERVICE_BLOCKED**\n\nGoogle Cloud actively blocked this key because the **Generative Language API** is disabled or restricted on this Google Cloud project.\n\n**To fix this live:**\n1. In [Google AI Studio](https://aistudio.google.com/app/apikey), click **"Create API key"** ➔ Choose **"Create key in new project"** (generates an unrestricted key with Gemini enabled).\n2. Tap the **🔑 API Key** button above in the header to paste it, or paste it here in the chat!`;
-            }
-
-            return `**⚠️ Google Gemini API Error**\n\nGoogle returned: \`${lastErrDetail || 'Authentication failed'}\`\n\n**To fix:**\nPlease tap the **🔑 API Key** button above in the header to check, test, or re-enter your Google Gemini API key.`;
+            console.warn('[AITutor] Gemini API attempts failed:', lastErrDetail);
+            // Fallback dynamically to LaquTum Methodology engine so student always gets an answer!
+            const fallbackText = generateMethodologyFallback(userQuery, imageObj);
+            return fallbackText;
         }
 
         // 2. IF ACCESS TOKEN / VERTEX REST ENDPOINT (Option B)
