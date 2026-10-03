@@ -3149,26 +3149,31 @@
     margin-bottom: 4px;
 }
 
-/* Thinking Indicator */
+/* Thinking Indicator (Funky) */
 .thinking-bubble {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 18px !important;
+    background: linear-gradient(135deg, rgba(20, 21, 40, 0.95), rgba(30, 27, 75, 0.85));
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(168, 85, 247, 0.2);
+    border-radius: 18px 18px 18px 4px;
 }
 
 .typing-dots {
     display: flex;
-    gap: 4px;
+    gap: 5px;
     align-items: center;
 }
 
 .typing-dots span {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: #a855f7;
+    background: linear-gradient(135deg, #a855f7, #38bdf8);
     animation: typingBounce 1.2s infinite ease-in-out;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);
 }
 
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -3176,13 +3181,28 @@
 
 @keyframes typingBounce {
     0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-    40% { transform: translateY(-6px); opacity: 1; }
+    40% { transform: translateY(-7px) scale(1.15); opacity: 1; }
 }
 
 .thinking-text {
-    font-size: 0.84rem;
-    color: #c4b5fd;
+    font-size: 0.86rem;
+    color: #e2e8f0;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.thinking-icon {
+    font-size: 1.15rem;
+    display: inline-block;
+    animation: funkyIconBounce 0.9s infinite alternate ease-in-out;
+}
+
+@keyframes funkyIconBounce {
+    0% { transform: translateY(0) scale(1) rotate(0deg); }
+    100% { transform: translateY(-4px) scale(1.22) rotate(12deg); }
 }
 
 /* Floating Bottom Input Bar */
@@ -3321,18 +3341,114 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+    position: relative;
+    overflow: visible;
 }
 
-.ai-send-btn:hover {
-    transform: scale(1.06);
-    box-shadow: 0 6px 18px rgba(124, 58, 237, 0.6);
+.ai-send-btn:hover:not(.loading) {
+    transform: scale(1.08) rotate(-4deg);
+    box-shadow: 0 6px 20px rgba(168, 85, 247, 0.65);
 }
 
-.ai-send-btn:active {
-    transform: scale(0.95);
+.ai-send-btn:active:not(.loading) {
+    transform: scale(0.92);
+}
+
+/* Funky Loading State */
+.ai-send-btn.loading {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+    background-size: 200% 200%;
+    animation: funkyGradientShift 1.5s ease infinite, funkyGlowPulse 1.2s ease-in-out infinite alternate;
+    cursor: wait;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.7), 0 0 35px rgba(99, 102, 241, 0.4);
+}
+
+.ai-send-btn.loading .ai-send-icon {
+    display: none;
+}
+
+.ai-send-btn .ai-send-spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #ffffff;
+    border-right-color: #38bdf8;
+    border-radius: 50%;
+    animation: funkySpin 0.7s linear infinite;
+}
+
+.ai-send-btn.loading .ai-send-spinner {
+    display: block;
+}
+
+/* Funky Wobble if clicked while loading */
+.ai-send-btn.wobble {
+    animation: funkyWobble 0.45s ease;
+}
+
+@keyframes funkySpin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes funkyGradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes funkyGlowPulse {
+    0% {
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.6), 0 0 22px rgba(99, 102, 241, 0.3);
+        transform: scale(0.97);
+    }
+    100% {
+        box-shadow: 0 0 24px rgba(236, 72, 153, 0.8), 0 0 36px rgba(168, 85, 247, 0.55);
+        transform: scale(1.05);
+    }
+}
+
+@keyframes funkyWobble {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(0.9, 1.12) rotate(-8deg); }
+    50% { transform: scale(1.12, 0.9) rotate(8deg); }
+    75% { transform: scale(0.95, 1.05) rotate(-3deg); }
+}
+
+/* Success Pop on response arrival */
+.ai-send-btn.success-pop {
+    background: linear-gradient(135deg, #10b981, #06b6d4) !important;
+    transform: scale(1.18);
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.85);
+}
+
+/* Funky Paced Hint Toast */
+.ai-funky-hint {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    right: 0;
+    background: rgba(18, 19, 36, 0.96);
+    border: 1px solid rgba(168, 85, 247, 0.5);
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 12px;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(168, 85, 247, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 1000;
+}
+
+.ai-funky-hint.show {
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
 
 .ai-input-footnote {

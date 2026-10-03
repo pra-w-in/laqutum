@@ -7,9 +7,69 @@ const AITutor = (() => {
     let messages = []; // [{ role: 'user' | 'model', text: string, image?: string, timestamp: number }]
     let attachedImage = null; // { dataUrl: string, mimeType: string, base64: string, name: string }
     let isThinking = false;
+    let thinkingInterval = null;
+    let currentPhraseIndex = 0;
+
+    const FUNKY_THINKING_PHRASES = [
+        { icon: '🚀', text: 'Firing synaptic thrusters...' },
+        { icon: '🧠', text: 'Deconstructing textbook fluff...' },
+        { icon: '🔍', text: 'Hunting down the core invariant...' },
+        { icon: '⚡', text: 'Distilling into 30-second clarity...' },
+        { icon: '🎯', text: 'Spotting the underlying archetype...' },
+        { icon: '✨', text: 'Polishing your LaquTum breakthrough...' }
+    ];
 
     // Helper
     const $ = id => document.getElementById(id);
+
+    function showFunkyHint(msg) {
+        const hint = $('ai-funky-hint');
+        if (hint) {
+            hint.textContent = msg;
+            hint.classList.add('show');
+            if (window._funkyHintTimeout) clearTimeout(window._funkyHintTimeout);
+            window._funkyHintTimeout = setTimeout(() => {
+                hint.classList.remove('show');
+            }, 1800);
+        }
+    }
+
+    function startThinkingAnimation() {
+        currentPhraseIndex = 0;
+        const sendBtn = $('ai-btn-send');
+        if (sendBtn) sendBtn.classList.add('loading');
+
+        if (thinkingInterval) clearInterval(thinkingInterval);
+        thinkingInterval = setInterval(() => {
+            currentPhraseIndex++;
+            const textEl = $('ai-thinking-text');
+            if (textEl) {
+                const phrase = FUNKY_THINKING_PHRASES[currentPhraseIndex % FUNKY_THINKING_PHRASES.length];
+                textEl.style.opacity = '0';
+                textEl.style.transform = 'translateY(4px)';
+                setTimeout(() => {
+                    textEl.innerHTML = `<span class="thinking-icon">${phrase.icon}</span> <span class="thinking-label">${phrase.text}</span>`;
+                    textEl.style.opacity = '1';
+                    textEl.style.transform = 'translateY(0)';
+                }, 160);
+            }
+        }, 900);
+    }
+
+    function stopThinkingAnimation() {
+        if (thinkingInterval) {
+            clearInterval(thinkingInterval);
+            thinkingInterval = null;
+        }
+        const sendBtn = $('ai-btn-send');
+        if (sendBtn) {
+            sendBtn.classList.remove('loading');
+            sendBtn.classList.add('success-pop');
+            setTimeout(() => {
+                sendBtn.classList.remove('success-pop');
+            }, 550);
+        }
+    }
 
     /**
      * Retrieve active API Key from localStorage or config
@@ -135,12 +195,14 @@ const AITutor = (() => {
                             rows="1"
                         ></textarea>
 
-                        <!-- Send Button -->
+                        <!-- Send Button with Funky Loader & Aura -->
                         <button type="button" class="ai-send-btn" id="ai-btn-send" title="Send Question">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg class="ai-send-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="m5 12 14-7-7 14-2-5-5-2z"/>
                             </svg>
+                            <div class="ai-send-spinner"></div>
                         </button>
+                        <div class="ai-funky-hint" id="ai-funky-hint">Hold tight! Cooking clarity... ⚡</div>
                     </div>
 
                     <div class="ai-input-footnote">
@@ -262,6 +324,7 @@ const AITutor = (() => {
     }
 
     function renderThinkingIndicator() {
+        const phrase = FUNKY_THINKING_PHRASES[currentPhraseIndex % FUNKY_THINKING_PHRASES.length];
         return `
             <div class="ai-msg-row ai thinking" id="ai-thinking-row">
                 <div class="ai-msg-avatar">✨</div>
@@ -271,7 +334,10 @@ const AITutor = (() => {
                         <span></span>
                         <span></span>
                     </div>
-                    <span class="thinking-text">Applying LaquTum Pattern Methodology...</span>
+                    <span class="thinking-text" id="ai-thinking-text">
+                        <span class="thinking-icon">${phrase.icon}</span>
+                        <span class="thinking-label">${phrase.text}</span>
+                    </span>
                 </div>
             </div>
         `;
@@ -426,7 +492,16 @@ const AITutor = (() => {
 
         // Send Button
         if (sendBtn) {
-            sendBtn.addEventListener('click', handleSend);
+            sendBtn.addEventListener('click', () => {
+                if (isThinking) {
+                    sendBtn.classList.remove('wobble');
+                    void sendBtn.offsetWidth; // trigger reflow for restart
+                    sendBtn.classList.add('wobble');
+                    showFunkyHint('🧠 Neurons firing! Cooking clarity... ⚡');
+                    return;
+                }
+                handleSend();
+            });
         }
 
         // Auto-resizing Textarea & Enter to Send
@@ -573,11 +648,19 @@ const AITutor = (() => {
         messages.push(userMsg);
         isThinking = true;
 
-        // Update messages feed
+        // Update messages feed & trigger funky button + thinking animations
         updateFeedUI();
+        startThinkingAnimation();
+
+        const MIN_PACING_MS = 2000; // ~2 seconds delightful delay: protects 15 RPM free tier while looking super smart & funky
 
         try {
-            const aiResponseText = await queryVertexAI(userMsg.text, imagePayload);
+            const aiResponsePromise = queryVertexAI(userMsg.text, imagePayload);
+            const [aiResponseText] = await Promise.all([
+                aiResponsePromise,
+                new Promise(resolve => setTimeout(resolve, MIN_PACING_MS))
+            ]);
+
             messages.push({
                 role: 'model',
                 text: aiResponseText,
@@ -594,6 +677,7 @@ const AITutor = (() => {
             });
         } finally {
             isThinking = false;
+            stopThinkingAnimation();
             updateFeedUI();
         }
     }
