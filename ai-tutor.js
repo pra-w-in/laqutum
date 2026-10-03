@@ -314,7 +314,7 @@ const AITutor = (() => {
         }
 
         if (saveKeyBtn && keyInput) {
-            saveKeyBtn.addEventListener('click', () => {
+            saveKeyBtn.addEventListener('click', async () => {
                 const val = keyInput.value.trim();
                 if (!val) {
                     if (keyStatusMsg) {
@@ -323,15 +323,33 @@ const AITutor = (() => {
                     }
                     return;
                 }
-                localStorage.setItem('laqutum_ai_key', val);
+                
                 if (keyStatusMsg) {
-                    keyStatusMsg.className = 'ai-key-status success';
-                    keyStatusMsg.textContent = '✅ Key saved! Connected to LaquTum AI.';
+                    keyStatusMsg.className = 'ai-key-status info';
+                    keyStatusMsg.textContent = '⏳ Testing live connection with Google Gemini...';
                 }
-                setTimeout(() => {
-                    if (keyModal) keyModal.style.display = 'none';
-                    renderChatUI();
-                }, 800);
+                saveKeyBtn.disabled = true;
+
+                const testResult = await testApiKey(val);
+                saveKeyBtn.disabled = false;
+
+                if (testResult.success) {
+                    localStorage.setItem('laqutum_ai_key', val);
+                    if (window.VERTEX_AI_CONFIG) window.VERTEX_AI_CONFIG.API_KEY = val;
+                    if (keyStatusMsg) {
+                        keyStatusMsg.className = 'ai-key-status success';
+                        keyStatusMsg.textContent = '✅ Connected! Live Google Gemini is active.';
+                    }
+                    setTimeout(() => {
+                        if (keyModal) keyModal.style.display = 'none';
+                        renderChatUI();
+                    }, 1000);
+                } else {
+                    if (keyStatusMsg) {
+                        keyStatusMsg.className = 'ai-key-status error';
+                        keyStatusMsg.innerHTML = `<strong>❌ Google rejected this key:</strong><br>${escapeHTML(testResult.message)}<br><small style="color:#94a3b8">Make sure to create the key in Google AI Studio via "Create key in new project".</small>`;
+                    }
+                }
             });
         }
 
@@ -530,13 +548,66 @@ const AITutor = (() => {
     }
 
     /**
+     * Test connection to Google Gemini API with a specific key
+     */
+    async function testApiKey(key) {
+        if (!key) return { success: false, message: 'Please enter an API key.' };
+        try {
+            const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
+            const model = (config && config.MODEL) ? config.MODEL : 'gemini-flash-latest';
+
+            // 1. Try standard endpoint ?key=
+            let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: 'user', parts: [{ text: 'Hello' }] }]
+                })
+            });
+
+            // 2. If 401 and starts with AQ., try header
+            if (!res.ok && key.startsWith('AQ.')) {
+                res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`,
+                        'x-goog-api-key': key
+                    },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: 'Hello' }] }]
+                    })
+                });
+            }
+
+            if (res.ok) {
+                const data = await res.json();
+                if (data.candidates && data.candidates[0]?.content) {
+                    return { success: true, message: 'Live Gemini connection confirmed!' };
+                }
+            }
+
+            const errData = await res.json().catch(() => ({}));
+            const reason = errData.error?.details?.[0]?.reason || errData.error?.status || '';
+            const msg = errData.error?.message || `HTTP ${res.status}`;
+            return {
+                success: false,
+                reason: reason,
+                message: reason ? `${reason}: ${msg}` : msg
+            };
+        } catch (e) {
+            return { success: false, message: e.message || 'Network error connecting to Google.' };
+        }
+    }
+
+    /**
      * Query Vertex AI or Google Gemini API
      */
     async function queryVertexAI(userQuery, imageObj) {
         const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
         const apiKey = getActiveApiKey();
         const accessToken = config ? config.ACCESS_TOKEN : '';
-        const model = (config && config.MODEL) ? config.MODEL : 'gemini-1.5-flash';
+        const model = (config && config.MODEL) ? config.MODEL : 'gemini-flash-latest';
 
         // 1. IF API KEY IS PRESENT
         if (apiKey) {
@@ -556,15 +627,25 @@ const AITutor = (() => {
                 parts.push({ text: 'Please extract the concept or question from this photo and break it down using the 4-step LaquTum Way of Learning.' });
             }
 
-            // Build recent history (up to last 6 messages)
+            // Build recent history (up to last 6 messages) strictly alternating turns
             const contents = [];
-            const recent = messages.slice(-7, -1);
-            recent.forEach(m => {
-                contents.push({
-                    role: m.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: m.text }]
-                });
-            });
+            const recent = messages.slice(0, -1).slice(-6);
+            let lastRole = null;
+            for (const m of recent) {
+                if (m.text && m.text.trim()) {
+                    const r = m.role === 'user' ? 'user' : 'model';
+                    if (r !== lastRole) {
+                        contents.push({
+                            role: r,
+                            parts: [{ text: m.text.trim() }]
+                        });
+                        lastRole = r;
+                    }
+                }
+            }
+            if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+                contents.pop();
+            }
             contents.push({
                 role: 'user',
                 parts: parts
@@ -572,7 +653,7 @@ const AITutor = (() => {
 
             const body = {
                 contents: contents,
-                systemInstruction: {
+                system_instruction: {
                     parts: [{ text: config.SYSTEM_INSTRUCTION || 'Solve using the 4-step LaquTum Way of Learning.' }]
                 },
                 generationConfig: {
@@ -585,38 +666,16 @@ const AITutor = (() => {
             // Prepare connection attempts based on key format
             const attempts = [];
 
-            // If key starts with AQ. (Google Cloud token format / Authentication key):
-            if (apiKey.startsWith('AQ.')) {
-                // Generative Language with Bearer header & x-goog-api-key
-                attempts.push({
-                    name: 'Generative Language (Bearer)',
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                        'x-goog-api-key': apiKey
-                    }
-                });
-                // Vertex AI Prediction endpoint
-                attempts.push({
-                    name: 'Vertex AI (Bearer)',
-                    url: `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent`,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    }
-                });
-            }
-
-            // Standard Gemini API Key endpoint (?key= and x-goog-api-key)
+            // Standard Gemini API Key endpoint (?key=)
             attempts.push({
                 name: 'Gemini API (?key=)',
                 url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
                 headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': apiKey
+                    'Content-Type': 'application/json'
                 }
             });
+
+            // Gemini API with x-goog-api-key header
             attempts.push({
                 name: 'Gemini API (Header)',
                 url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
@@ -626,13 +685,26 @@ const AITutor = (() => {
                 }
             });
 
+            // If key starts with AQ. (Google Cloud token format / Authentication key):
+            if (apiKey.startsWith('AQ.')) {
+                attempts.push({
+                    name: 'Generative Language (Bearer)',
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'x-goog-api-key': apiKey
+                    }
+                });
+            }
+
             let serviceBlocked = false;
             let lastErrDetail = '';
 
             for (const attempt of attempts) {
                 try {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                     const res = await fetch(attempt.url, {
                         method: 'POST',
@@ -655,7 +727,7 @@ const AITutor = (() => {
                         if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED') || reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED') {
                             if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED')) {
                                 serviceBlocked = true;
-                                break; // Don't delay the user with repeated blocked requests
+                                break;
                             }
                         }
                     }
@@ -664,21 +736,14 @@ const AITutor = (() => {
                 }
             }
 
-            // If user simply greeted, return warm mentor greeting without error warnings
-            const greetings = ['hi', 'hello', 'hey', 'namaste', 'vanakkam', 'yo', 'good morning', 'good afternoon', 'good evening', 'who are you', 'what are you', 'how are you'];
-            const trimmedQ = (userQuery || '').trim().toLowerCase().replace(/[!.,?]+$/, '');
-            if (greetings.includes(trimmedQ) || trimmedQ.startsWith('hi ') || trimmedQ.startsWith('hello ') || trimmedQ.startsWith('hey ')) {
-                return generateMethodologyFallback(userQuery, imageObj);
-            }
-
-            // If API key was blocked or failed, seamlessly deliver pure LaquTum breakdown
+            // If API key failed, report the exact Google error rather than hiding it with a generic fallback!
+            console.error('[AITutor] Google API failed with error:', lastErrDetail);
+            
             if (serviceBlocked) {
-                console.warn('[AITutor] Google API returned API_KEY_SERVICE_BLOCKED. Answered via LaquTum Pattern Engine.');
-            } else if (lastErrDetail) {
-                console.warn('[AITutor] Google API notice:', lastErrDetail);
+                return `**⚠️ Google Gemini API Error: API_KEY_SERVICE_BLOCKED**\n\nGoogle Cloud actively blocked this key because the **Generative Language API** is disabled or restricted on this Google Cloud project.\n\n**To fix this live:**\n1. In [Google AI Studio](https://aistudio.google.com/app/apikey), click **"Create API key"** ➔ Choose **"Create key in new project"** (generates an unrestricted key with Gemini enabled).\n2. Tap the **🔑 API Key** button above in the header to paste it, or paste it here in the chat!`;
             }
 
-            return generateMethodologyFallback(userQuery, imageObj);
+            return `**⚠️ Google Gemini API Error**\n\nGoogle returned: \`${lastErrDetail || 'Authentication failed'}\`\n\n**To fix:**\nPlease tap the **🔑 API Key** button above in the header to check, test, or re-enter your Google Gemini API key.`;
         }
 
         // 2. IF ACCESS TOKEN / VERTEX REST ENDPOINT (Option B)

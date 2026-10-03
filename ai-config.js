@@ -15,7 +15,7 @@ const VERTEX_AI_CONFIG = {
 
     // OPTION A: Google Gemini / Vertex AI Studio API Key (Easiest & Recommended)
     // Get your key from Google AI Studio (https://aistudio.google.com/) or Vertex AI:
-    API_KEY: 'AQ.Ab8RN6IFiD4YNHp-anz6RQyVQn-63L6ewrAnI4XYd4mjmKEMuA', // User provided Google API key
+    API_KEY: 'AQ.Ab8RN6J2W6BH21A03qeil2OaYRUqLBFYCdCWmZHtyrfd8pVMLA', // User provided Google API key
 
     // OPTION B: Google Cloud Vertex AI Project Endpoint (For GCP IAM / Service Accounts)
     PROJECT_ID: '', // e.g. 'laqutum-production-123'
@@ -25,10 +25,9 @@ const VERTEX_AI_CONFIG = {
     // =========================================================================
     // 2. MODEL CONFIGURATION
     // =========================================================================
-    // Models: 'gemini-1.5-flash' (recommended: ultra-fast, vision/multimodal, cheap)
-    //         'gemini-1.5-pro' (high-reasoning, complex puzzles)
-    //         'gemini-2.0-flash' (next-gen ultra responsive)
-    MODEL: 'gemini-1.5-flash',
+    // Models: 'gemini-flash-latest' (recommended: official ultra-fast auto-resolving model)
+    //         'gemini-2.5-flash', 'gemini-3.8-flash'
+    MODEL: 'gemini-flash-latest',
 
     TEMPERATURE: 0.2, // Low temperature for high mathematical precision and pattern adherence
     TOP_P: 0.95,
