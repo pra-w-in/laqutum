@@ -307,10 +307,10 @@ const PreviewApp = (() => {
         const target = document.getElementById(id);
         if (target) target.classList.add('active');
 
-        // Hide bottom nav on all screens except the main dashboard and battle screens
+        // Hide bottom nav on all screens except the main dashboard, battle, and ask screens
         const nav = document.getElementById('overlay-bottom-nav');
         if (nav) {
-            if (id === 'screen-dashboard' || id === 'screen-battle') {
+            if (id === 'screen-dashboard' || id === 'screen-battle' || id === 'screen-ask') {
                 nav.style.display = 'flex';
             } else {
                 nav.style.display = 'none';
@@ -1028,6 +1028,7 @@ const PreviewApp = (() => {
 
     function wireAppBottomNav(activeId) {
         const homeBtn = document.getElementById('app-nav-home');
+        const askBtn = document.getElementById('app-nav-ask');
         const topicsBtn = document.getElementById('app-nav-topics');
         const battleBtn = document.getElementById('app-nav-battle');
         const accessBtn = document.getElementById('app-nav-access');
@@ -1043,6 +1044,15 @@ const PreviewApp = (() => {
             homeBtn.dataset.wired = 'true';
             homeBtn.addEventListener('click', () => {
                 renderPostResultsChoice();
+            });
+        }
+        if (askBtn && !askBtn.dataset.wired) {
+            askBtn.dataset.wired = 'true';
+            askBtn.addEventListener('click', () => {
+                state = 'ASK';
+                if (typeof AITutor !== 'undefined') {
+                    AITutor.openChat();
+                }
             });
         }
         if (topicsBtn && !topicsBtn.dataset.wired) {
@@ -1555,8 +1565,13 @@ const PreviewApp = (() => {
 
         let unlocked = currentUser.unlockedTopics || [];
         
-        // If already unlocked or Admin, proceed immediately
-        if (unlocked.includes(topicId) || currentUser.isAdmin) {
+        // If Full Access granted via CRM ('*' wildcard, 'all'), Admin, or already unlocked, proceed immediately
+        const hasFullAccess = unlocked.includes('*') || 
+                             unlocked.includes('all') || 
+                             currentUser.isAdmin || 
+                             (typeof allAptitudeTopics !== 'undefined' && allAptitudeTopics.length > 0 && unlocked.length >= allAptitudeTopics.length);
+        
+        if (hasFullAccess || unlocked.includes(topicId)) {
             onSuccessCallback();
             return;
         }
@@ -2248,6 +2263,8 @@ const PreviewApp = (() => {
                 } else {
                     close();
                 }
+            } else if (state === 'ASK') {
+                renderPostResultsChoice();
             } else if (state === 'PICKER') {
                 renderPostResultsChoice();
             } else if (state === 'QUOTE_TRANSITION') {
@@ -2276,5 +2293,5 @@ const PreviewApp = (() => {
         }
     }
 
-    return { open, close, init, showScreen, wireAppBottomNav, renderPostResultsChoice };
+    return { open, close, init, showScreen, wireAppBottomNav, renderPostResultsChoice, checkPaywallAndStart };
 })();

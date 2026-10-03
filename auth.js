@@ -26,26 +26,32 @@ const AuthManager = (function () {
 
         if (error) throw new Error(error.message);
 
+        // Immediately create or update the user_progress row with the user's email & survey info
+        if (data && data.user) {
+            try {
+                const { error: dbError } = await supabaseClient.from('user_progress').upsert({
+                    user_id: data.user.id,
+                    email: cleanEmail,
+                    has_completed_diagnostic: false,
+                    survey_knowledge: aptitudeLevel || null,
+                    xp: 0,
+                    streak: 1,
+                    hearts: 5,
+                    confidence_states: {},
+                    topic_progress: {},
+                    unlocked_topics: []
+                }, { onConflict: 'user_id' });
+                if (dbError && dbError.code !== '23505') {
+                    console.error('Failed to create user progress on signup:', dbError);
+                }
+            } catch (upsertErr) {
+                console.warn('Initial user_progress upsert warning:', upsertErr);
+            }
+        }
+
         // If email confirmation is required, session will be null
         if (!data.session && data.user) {
             throw new Error("Account created! Please check your email to confirm your account before logging in.");
-        }
-
-        // Try to create the progress row. 
-        // If it fails (e.g. user already exists but isn't confirmed), that's fine.
-        if (data.user) {
-            const { error: dbError } = await supabaseClient.from('user_progress').insert({
-                user_id: data.user.id,
-                has_completed_diagnostic: false,
-                xp: 0,
-                streak: 1,
-                hearts: 5,
-                confidence_states: {},
-                topic_progress: {}
-            });
-            if (dbError && dbError.code !== '23505') { // Ignore unique violation
-                console.error('Failed to create user progress:', dbError);
-            }
         }
 
         await updateNavbarUI();
@@ -65,6 +71,18 @@ const AuthManager = (function () {
         });
 
         if (error) throw new Error(error.message);
+
+        // Ensure user_progress row stores the user's email
+        if (data && data.user) {
+            try {
+                await supabaseClient.from('user_progress').upsert({
+                    user_id: data.user.id,
+                    email: cleanEmail
+                }, { onConflict: 'user_id' });
+            } catch (syncErr) {
+                console.warn('Failed to sync email to user_progress on login:', syncErr);
+            }
+        }
 
         await updateNavbarUI();
         return await getCurrentUser();
@@ -92,13 +110,26 @@ const AuthManager = (function () {
             return null;
         }
 
-        const { data: progress } = await supabaseClient
+        let { data: progress } = await supabaseClient
             .from('user_progress')
             .select('*')
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
         if (progress) {
+            // Auto-repair missing or outdated email in user_progress
+            if (!progress.email || (user.email && progress.email !== user.email)) {
+                try {
+                    await supabaseClient
+                        .from('user_progress')
+                        .update({ email: user.email })
+                        .eq('user_id', user.id);
+                    progress.email = user.email;
+                } catch (e) {
+                    console.warn('Error syncing email in user_progress:', e);
+                }
+            }
+
             // Map db columns to JS camelCase
             _currentUserCache = {
                 id: user.id,
@@ -118,17 +149,39 @@ const AuthManager = (function () {
                 unlockedTopics: progress.unlocked_topics || []
             };
         } else {
-            // Fallback if progress row is missing
+            // Row is missing from user_progress: create it now with email
+            try {
+                const initialRow = {
+                    user_id: user.id,
+                    email: user.email,
+                    has_completed_diagnostic: false,
+                    xp: 0,
+                    streak: 1,
+                    hearts: 5,
+                    confidence_states: {},
+                    topic_progress: {},
+                    unlocked_topics: []
+                };
+                const { data: createdProgress } = await supabaseClient
+                    .from('user_progress')
+                    .upsert(initialRow, { onConflict: 'user_id' })
+                    .select()
+                    .maybeSingle();
+                if (createdProgress) progress = createdProgress;
+            } catch (e) {
+                console.warn('Error creating user_progress row in getCurrentUser:', e);
+            }
+
             _currentUserCache = {
                 id: user.id,
                 email: user.email,
                 name: user.user_metadata?.full_name || 'Aptitude Student',
-                hasCompletedDiagnostic: false,
-                confidenceStates: {},
-                topicProgress: {},
-                isBanned: false,
-                isAdmin: false,
-                unlockedTopics: []
+                hasCompletedDiagnostic: progress ? progress.has_completed_diagnostic : false,
+                confidenceStates: progress?.confidence_states || {},
+                topicProgress: progress?.topic_progress || {},
+                isBanned: progress?.is_banned || false,
+                isAdmin: progress?.is_admin || false,
+                unlockedTopics: progress?.unlocked_topics || []
             };
         }
 
@@ -156,9 +209,11 @@ const AuthManager = (function () {
         if (updates.topicProgress !== undefined) dbUpdates.topic_progress = updates.topicProgress;
         if (updates.unlockedTopics !== undefined) dbUpdates.unlocked_topics = updates.unlockedTopics;
 
-        if (Object.keys(dbUpdates).length === 0) return user;
-
+        // Ensure user_id and email are always preserved in user_progress
         dbUpdates.user_id = user.id;
+        if (user.email) {
+            dbUpdates.email = user.email;
+        }
 
         const { data, error } = await supabaseClient
             .from('user_progress')
@@ -361,7 +416,6 @@ const AuthManager = (function () {
                 try {
                     const aptLevel = document.getElementById('signupAptitudeLevel') ? document.getElementById('signupAptitudeLevel').value : '';
                     const user = await signUp(name, email, password, aptLevel);
-                    alert('Debug Success: Account created!');
                     closeAuthModal();
                     if (pendingCallback) {
                         const cb = pendingCallback;
@@ -369,7 +423,6 @@ const AuthManager = (function () {
                         cb(user);
                     }
                 } catch (err) {
-                    alert('Debug Error: ' + err.message);
                     if (signupError) {
                         signupError.textContent = err.message;
                         signupError.classList.remove('hidden');
@@ -387,7 +440,6 @@ const AuthManager = (function () {
 
                 try {
                     const user = await signIn(email, password);
-                    alert('Debug Success: Logged in!');
                     closeAuthModal();
                     if (pendingCallback) {
                         const cb = pendingCallback;
@@ -395,12 +447,11 @@ const AuthManager = (function () {
                         cb(user);
                     }
                 } catch (err) {
-                    alert('Debug Error: ' + err.message);
                     if (signinError) {
                         signinError.textContent = err.message;
                         signinError.classList.remove('hidden');
                     }
-                                }
+                }
             });
         }
         
@@ -423,6 +474,10 @@ const AuthManager = (function () {
         updateNavbarUI
     };
 })();
+
+if (typeof window !== 'undefined') {
+    window.AuthManager = AuthManager;
+}
 
 function initAuth() {
     if (typeof supabaseClient !== 'undefined') {
