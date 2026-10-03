@@ -671,15 +671,14 @@ const AITutor = (() => {
                 return generateMethodologyFallback(userQuery, imageObj);
             }
 
-            // If API key was blocked or failed, give friendly guidance AND dynamic LaquTum solution
-            const maskedKey = apiKey.length > 10 ? (apiKey.substring(0, 6) + '...' + apiKey.slice(-4)) : apiKey;
-            
-            const warningBanner = serviceBlocked
-                ? `> ⚠️ **Google Cloud Notice**: Google returned \`API_KEY_SERVICE_BLOCKED\` for key (\`${maskedKey}\`).\n>\n> To connect live to Gemini: open [Google AI Studio](https://aistudio.google.com/app/apikey) ➔ **"Create API key"** ➔ **"Create key in new project"**, then paste it via the **🔑 API Key** button above.\n>\n> *(In the meantime, the LaquTum 4-Step Pattern Engine has answered below!)*\n\n---\n\n`
-                : `> ⚠️ **Google Connection Notice**: Could not authenticate with Google API (\`${lastErrDetail || 'Check key restrictions'}\`).\n>\n> You can update your key anytime by clicking the **🔑 API Key** button above.\n>\n> *(In the meantime, the LaquTum 4-Step Pattern Engine has answered below!)*\n\n---\n\n`;
+            // If API key was blocked or failed, seamlessly deliver pure LaquTum breakdown
+            if (serviceBlocked) {
+                console.warn('[AITutor] Google API returned API_KEY_SERVICE_BLOCKED. Answered via LaquTum Pattern Engine.');
+            } else if (lastErrDetail) {
+                console.warn('[AITutor] Google API notice:', lastErrDetail);
+            }
 
-            const fallbackAnswer = generateMethodologyFallback(userQuery, imageObj);
-            return warningBanner + fallbackAnswer;
+            return generateMethodologyFallback(userQuery, imageObj);
         }
 
         // 2. IF ACCESS TOKEN / VERTEX REST ENDPOINT (Option B)
@@ -726,7 +725,6 @@ const AITutor = (() => {
      */
     function generateMethodologyFallback(query, imageObj) {
         const q = (query || '').toLowerCase();
-        const hasKey = !!getActiveApiKey();
 
         // 0. Friendly Greetings
         const greetings = ['hi', 'hello', 'hey', 'namaste', 'vanakkam', 'yo', 'good morning', 'good afternoon', 'good evening', 'who are you', 'what are you', 'how are you'];
@@ -749,7 +747,7 @@ Instead of rote memorization or tedious 10-step formulas, I deconstruct any conc
 - Snap a photo using the **Camera icon 📷** to get a 30-second breakdown of your notes or questions!`;
         }
 
-        const banner = hasKey ? '' : `> ℹ️ **Ready for Live AI**: To connect directly to your live Google Gemini / Vertex AI model, click the **🔑 API Key** button above to paste your key.\n\n`;
+        const banner = '';
 
         // 1. First-Principles Mastery Prompt
         if (q.includes('first-principle') || q.includes('complex subject') || q.includes('foundational')) {
