@@ -15,7 +15,7 @@ const VERTEX_AI_CONFIG = {
 
     // OPTION A: Google Gemini / Vertex AI Studio API Key (Easiest & Recommended)
     // Get your key from Google AI Studio (https://aistudio.google.com/) or Vertex AI:
-    API_KEY: 'AQ.Ab8RN6IFiD4YNHp-anz6RQyVQn-63L6ewrAnI4XYd4mjmKEMuA', // <-- PASTE YOUR API KEY HERE
+    API_KEY: 'AQ.Ab8RN6IFiD4YNHp-anz6RQyVQn-63L6ewrAnI4XYd4mjmKEMuA', // User provided Google API key
 
     // OPTION B: Google Cloud Vertex AI Project Endpoint (For GCP IAM / Service Accounts)
     PROJECT_ID: '', // e.g. 'laqutum-production-123'

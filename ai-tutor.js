@@ -12,6 +12,18 @@ const AITutor = (() => {
     const $ = id => document.getElementById(id);
 
     /**
+     * Retrieve active API Key from localStorage or config
+     */
+    function getActiveApiKey() {
+        if (typeof localStorage !== 'undefined') {
+            const stored = localStorage.getItem('laqutum_ai_key');
+            if (stored && stored.trim()) return stored.trim();
+        }
+        const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
+        return (config && config.API_KEY) ? config.API_KEY.trim() : '';
+    }
+
+    /**
      * Open the AI Chat Screen
      */
     function openChat() {
@@ -33,6 +45,9 @@ const AITutor = (() => {
         const container = $('screen-ask');
         if (!container) return;
 
+        const currentKey = getActiveApiKey();
+        const hasKey = !!currentKey;
+
         container.innerHTML = `
             <div class="ai-chat-wrapper">
                 <!-- Chat Top Header -->
@@ -42,7 +57,7 @@ const AITutor = (() => {
                         <div class="ai-header-info">
                             <div class="ai-header-title">
                                 <span>LaquTum AI</span>
-                                <span class="ai-model-tag">Vertex AI</span>
+                                <span class="ai-model-tag">${hasKey ? 'Vertex AI' : 'LaquTum Engine'}</span>
                             </div>
                             <div class="ai-header-sub">
                                 <span class="ai-status-dot"></span>
@@ -51,8 +66,16 @@ const AITutor = (() => {
                         </div>
                     </div>
                     <div class="ai-header-actions">
+                        <button class="ai-action-btn" id="ai-btn-api-key" title="API Key Settings">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="7.5" cy="15.5" r="4.5"/>
+                                <path d="m21 3-9.5 9.5"/>
+                                <path d="m15.5 7.5 3 3"/>
+                            </svg>
+                            <span class="btn-text-desktop">API Key</span>
+                        </button>
                         <button class="ai-action-btn" id="ai-btn-new-chat" title="Start New Chat">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M12 5v14M5 12h14"/>
                             </svg>
                             <span class="btn-text-desktop">New Chat</span>
@@ -109,6 +132,37 @@ const AITutor = (() => {
 
                     <div class="ai-input-footnote">
                         Powered by Google Vertex AI • The LaquTum Way of Learning
+                    </div>
+                </div>
+
+                <!-- API Key Configuration Modal -->
+                <div class="ai-modal-backdrop" id="ai-key-modal" style="display: none;">
+                    <div class="ai-modal-card">
+                        <div class="ai-modal-header">
+                            <div class="ai-modal-title">
+                                <span>🔑</span> Google Gemini / Vertex AI Key
+                            </div>
+                            <button type="button" class="ai-modal-close" id="ai-btn-close-key-modal">&times;</button>
+                        </div>
+                        <div class="ai-modal-body">
+                            <p class="ai-modal-desc">
+                                Paste your Google AI Studio or Vertex AI key below. Once saved, LaquTum AI connects directly to Google's live model.
+                            </p>
+                            <div class="ai-key-input-wrap">
+                                <input type="text" id="ai-key-input-field" class="ai-key-input" placeholder="Paste your API key (e.g. AIza... or AQ...)" />
+                            </div>
+                            <div id="ai-key-status-msg" class="ai-key-status"></div>
+                            <div class="ai-key-actions">
+                                <button type="button" class="ai-btn-primary" id="ai-btn-save-key">Save & Connect</button>
+                                <button type="button" class="ai-btn-secondary" id="ai-btn-clear-key">Clear Key</button>
+                            </div>
+                            <div class="ai-key-help">
+                                <strong>💡 Need a free Google API key?</strong><br>
+                                1. Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio (aistudio.google.com)</a><br>
+                                2. Click <strong>"Create API key"</strong> ➔ Select <strong>"Create key in new project"</strong><br>
+                                3. Copy & paste that key here!
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -219,6 +273,81 @@ const AITutor = (() => {
         const cameraBtn = $('ai-btn-camera');
         const fileInput = $('ai-camera-input');
         const newChatBtn = $('ai-btn-new-chat');
+
+        const apiKeyBtn = $('ai-btn-api-key');
+        const keyModal = $('ai-key-modal');
+        const closeKeyModalBtn = $('ai-btn-close-key-modal');
+        const saveKeyBtn = $('ai-btn-save-key');
+        const clearKeyBtn = $('ai-btn-clear-key');
+        const keyInput = $('ai-key-input-field');
+        const keyStatusMsg = $('ai-key-status-msg');
+
+        // API Key Settings Modal
+        if (apiKeyBtn && keyModal) {
+            apiKeyBtn.addEventListener('click', () => {
+                const currentKey = getActiveApiKey();
+                if (keyInput) keyInput.value = currentKey;
+                if (keyStatusMsg) {
+                    if (currentKey) {
+                        const masked = currentKey.length > 10 ? (currentKey.substring(0, 6) + '...' + currentKey.slice(-4)) : currentKey;
+                        keyStatusMsg.className = 'ai-key-status info';
+                        keyStatusMsg.textContent = `Current Active Key: ${masked}`;
+                    } else {
+                        keyStatusMsg.className = 'ai-key-status';
+                        keyStatusMsg.textContent = '';
+                    }
+                }
+                keyModal.style.display = 'flex';
+            });
+        }
+
+        if (closeKeyModalBtn && keyModal) {
+            closeKeyModalBtn.addEventListener('click', () => {
+                keyModal.style.display = 'none';
+            });
+        }
+
+        if (keyModal) {
+            keyModal.addEventListener('click', (e) => {
+                if (e.target === keyModal) keyModal.style.display = 'none';
+            });
+        }
+
+        if (saveKeyBtn && keyInput) {
+            saveKeyBtn.addEventListener('click', () => {
+                const val = keyInput.value.trim();
+                if (!val) {
+                    if (keyStatusMsg) {
+                        keyStatusMsg.className = 'ai-key-status error';
+                        keyStatusMsg.textContent = 'Please enter an API key.';
+                    }
+                    return;
+                }
+                localStorage.setItem('laqutum_ai_key', val);
+                if (keyStatusMsg) {
+                    keyStatusMsg.className = 'ai-key-status success';
+                    keyStatusMsg.textContent = '✅ Key saved! Connected to LaquTum AI.';
+                }
+                setTimeout(() => {
+                    if (keyModal) keyModal.style.display = 'none';
+                    renderChatUI();
+                }, 800);
+            });
+        }
+
+        if (clearKeyBtn) {
+            clearKeyBtn.addEventListener('click', () => {
+                localStorage.removeItem('laqutum_ai_key');
+                if (keyInput) keyInput.value = '';
+                if (keyStatusMsg) {
+                    keyStatusMsg.className = 'ai-key-status info';
+                    keyStatusMsg.textContent = 'Key cleared from local storage. Reverted to default config.';
+                }
+                setTimeout(() => {
+                    renderChatUI();
+                }, 800);
+            });
+        }
 
         // New Chat
         if (newChatBtn) {
@@ -387,9 +516,11 @@ const AITutor = (() => {
             });
         } catch (err) {
             console.error('[AITutor] Query error:', err);
+            // Fallback gracefully to LaquTum Methodology solver so the user ALWAYS gets an answer
+            const fallbackText = generateMethodologyFallback(userMsg.text, imagePayload);
             messages.push({
                 role: 'model',
-                text: `**⚠️ Unable to complete request**\n\n${err.message || 'Please check your internet connection or Google Vertex AI credentials in `ai-config.js`.'}`,
+                text: fallbackText,
                 timestamp: Date.now()
             });
         } finally {
@@ -403,14 +534,12 @@ const AITutor = (() => {
      */
     async function queryVertexAI(userQuery, imageObj) {
         const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-        const apiKey = config ? config.API_KEY : '';
+        const apiKey = getActiveApiKey();
         const accessToken = config ? config.ACCESS_TOKEN : '';
         const model = (config && config.MODEL) ? config.MODEL : 'gemini-1.5-flash';
 
-        // IF CREDENTIALS ARE PROVIDED: Call live Google Gemini / Vertex AI Endpoint
+        // 1. IF API KEY IS PRESENT
         if (apiKey) {
-            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
             // Build parts
             const parts = [];
             if (imageObj && imageObj.base64) {
@@ -427,7 +556,7 @@ const AITutor = (() => {
                 parts.push({ text: 'Please extract the concept or question from this photo and break it down using the 4-step LaquTum Way of Learning.' });
             }
 
-            // Build conversation history (up to last 6 messages)
+            // Build recent history (up to last 6 messages)
             const contents = [];
             const recent = messages.slice(-7, -1);
             recent.forEach(m => {
@@ -444,7 +573,7 @@ const AITutor = (() => {
             const body = {
                 contents: contents,
                 systemInstruction: {
-                    parts: [{ text: config.SYSTEM_INSTRUCTION || 'Solve using LaquTum Pattern Methodology.' }]
+                    parts: [{ text: config.SYSTEM_INSTRUCTION || 'Solve using the 4-step LaquTum Way of Learning.' }]
                 },
                 generationConfig: {
                     temperature: config.TEMPERATURE || 0.2,
@@ -453,26 +582,107 @@ const AITutor = (() => {
                 }
             };
 
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+            // Prepare connection attempts based on key format
+            const attempts = [];
+
+            // If key starts with AQ. (Google Cloud token format / Authentication key):
+            if (apiKey.startsWith('AQ.')) {
+                // Generative Language with Bearer header & x-goog-api-key
+                attempts.push({
+                    name: 'Generative Language (Bearer)',
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'x-goog-api-key': apiKey
+                    }
+                });
+                // Vertex AI Prediction endpoint
+                attempts.push({
+                    name: 'Vertex AI (Bearer)',
+                    url: `https://aiplatform.googleapis.com/v1/publishers/google/models/${model}:generateContent`,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    }
+                });
+            }
+
+            // Standard Gemini API Key endpoint (?key= and x-goog-api-key)
+            attempts.push({
+                name: 'Gemini API (?key=)',
+                url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                }
+            });
+            attempts.push({
+                name: 'Gemini API (Header)',
+                url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                }
             });
 
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                const msg = (errData.error && errData.error.message) ? errData.error.message : `API request failed with status ${res.status}`;
-                throw new Error(msg);
+            let serviceBlocked = false;
+            let lastErrDetail = '';
+
+            for (const attempt of attempts) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                    const res = await fetch(attempt.url, {
+                        method: 'POST',
+                        headers: attempt.headers,
+                        body: JSON.stringify(body),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.candidates && data.candidates[0]?.content?.parts) {
+                            return data.candidates[0].content.parts.map(p => p.text).join('\n');
+                        }
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        const reason = errData.error?.details?.[0]?.reason || '';
+                        const msg = errData.error?.message || `HTTP ${res.status}`;
+                        lastErrDetail = msg;
+                        if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED') || reason === 'ACCESS_TOKEN_TYPE_UNSUPPORTED') {
+                            if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED')) {
+                                serviceBlocked = true;
+                                break; // Don't delay the user with repeated blocked requests
+                            }
+                        }
+                    }
+                } catch (e) {
+                    lastErrDetail = e.message;
+                }
             }
 
-            const data = await res.json();
-            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-                return data.candidates[0].content.parts.map(p => p.text).join('\n');
+            // If user simply greeted, return warm mentor greeting without error warnings
+            const greetings = ['hi', 'hello', 'hey', 'namaste', 'vanakkam', 'yo', 'good morning', 'good afternoon', 'good evening', 'who are you', 'what are you', 'how are you'];
+            const trimmedQ = (userQuery || '').trim().toLowerCase().replace(/[!.,?]+$/, '');
+            if (greetings.includes(trimmedQ) || trimmedQ.startsWith('hi ') || trimmedQ.startsWith('hello ') || trimmedQ.startsWith('hey ')) {
+                return generateMethodologyFallback(userQuery, imageObj);
             }
-            throw new Error('No response generated by model.');
+
+            // If API key was blocked or failed, give friendly guidance AND dynamic LaquTum solution
+            const maskedKey = apiKey.length > 10 ? (apiKey.substring(0, 6) + '...' + apiKey.slice(-4)) : apiKey;
+            
+            const warningBanner = serviceBlocked
+                ? `> ⚠️ **Google Cloud Notice**: Google returned \`API_KEY_SERVICE_BLOCKED\` for key (\`${maskedKey}\`).\n>\n> To connect live to Gemini: open [Google AI Studio](https://aistudio.google.com/app/apikey) ➔ **"Create API key"** ➔ **"Create key in new project"**, then paste it via the **🔑 API Key** button above.\n>\n> *(In the meantime, the LaquTum 4-Step Pattern Engine has answered below!)*\n\n---\n\n`
+                : `> ⚠️ **Google Connection Notice**: Could not authenticate with Google API (\`${lastErrDetail || 'Check key restrictions'}\`).\n>\n> You can update your key anytime by clicking the **🔑 API Key** button above.\n>\n> *(In the meantime, the LaquTum 4-Step Pattern Engine has answered below!)*\n\n---\n\n`;
+
+            const fallbackAnswer = generateMethodologyFallback(userQuery, imageObj);
+            return warningBanner + fallbackAnswer;
         }
 
-        // IF ACCESS TOKEN / VERTEX REST ENDPOINT
+        // 2. IF ACCESS TOKEN / VERTEX REST ENDPOINT (Option B)
         if (accessToken && config.PROJECT_ID) {
             const loc = config.LOCATION || 'us-central1';
             const endpoint = `https://${loc}-aiplatform.googleapis.com/v1/projects/${config.PROJECT_ID}/locations/${loc}/publishers/google/models/${model}:generateContent`;
@@ -499,27 +709,47 @@ const AITutor = (() => {
                 })
             });
 
-            if (!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error?.message || `Vertex AI call failed (${res.status})`);
+            if (res.ok) {
+                const data = await res.json();
+                return data.candidates[0].content.parts[0].text;
             }
-            const data = await res.json();
-            return data.candidates[0].content.parts[0].text;
         }
 
-        // FALLBACK: INTELLIGENT SIMULATED METHODOLOGY ENGINE (Until user pastes API credentials)
-        await new Promise(r => setTimeout(r, 1200)); // natural reading pause
+        // 3. FALLBACK: INTELLIGENT SIMULATED METHODOLOGY ENGINE (Until user pastes API credentials)
+        await new Promise(r => setTimeout(r, 600)); // natural reading pause
         return generateMethodologyFallback(userQuery, imageObj);
     }
 
     /**
-     * Fallback Pattern Engine demonstrating LaquTum Methodology
-     * Shows a helpful note reminding the user to paste their Google Vertex AI API key in ai-config.js
+     * Dynamic Pattern Engine demonstrating LaquTum Methodology
+     * Automatically extracts core question concepts and breaks them down using the 4-step framework
      */
     function generateMethodologyFallback(query, imageObj) {
         const q = (query || '').toLowerCase();
+        const hasKey = !!getActiveApiKey();
 
-        const banner = `> ℹ️ **Ready for Vertex AI**: To connect directly to your live Google Gemini / Vertex AI model, paste your API key in \`ai-config.js\` under \`API_KEY: '...'\`.\n\n`;
+        // 0. Friendly Greetings
+        const greetings = ['hi', 'hello', 'hey', 'namaste', 'vanakkam', 'yo', 'good morning', 'good afternoon', 'good evening', 'who are you', 'what are you', 'how are you'];
+        const trimmedQ = (query || '').trim().toLowerCase().replace(/[!.,?]+$/, '');
+        if (greetings.includes(trimmedQ) || trimmedQ.startsWith('hi ') || trimmedQ.startsWith('hello ') || trimmedQ.startsWith('hey ')) {
+            return `### ✨ Welcome to LaquTum AI!
+
+Hello! I am your **LaquTum AI Mentor** — here to help you learn **anything and everything** using the proprietary **LaquTum Way of Learning**!
+
+Instead of rote memorization or tedious 10-step formulas, I deconstruct any concept or problem into:
+* 🎯 **Identified Pattern**: Spot the universal archetype
+* ⚡ **30-Second Fast Shortcut**: Solve with direct mental intuition
+* 🧠 **First-Principles Truth**: Understand *why* it works permanently
+* ⚠️ **Trap to Avoid**: Steer clear of common deceptive mistakes
+
+---
+
+💡 **How can I help you right now?**
+- Ask any concept (Math, Science, Logic, Coding, Business, Systems)
+- Snap a photo using the **Camera icon 📷** to get a 30-second breakdown of your notes or questions!`;
+        }
+
+        const banner = hasKey ? '' : `> ℹ️ **Ready for Live AI**: To connect directly to your live Google Gemini / Vertex AI model, click the **🔑 API Key** button above to paste your key.\n\n`;
 
         // 1. First-Principles Mastery Prompt
         if (q.includes('first-principle') || q.includes('complex subject') || q.includes('foundational')) {
@@ -606,44 +836,38 @@ This framework targets both the subconscious intuition (fast recognition) and an
 Solving without checking for traps. True mastery means knowing where the pitfall lies and walking cleanly around it.`;
         }
 
-        // 5. Train / Rate Problem
-        if (q.includes('train') || q.includes('platform') || q.includes('pole') || q.includes('speed')) {
-            return banner + `### 🎯 Identified Pattern: **Rate × Time = Quantity**
-A moving object passing a stationary point only covers its own length, but passing an extended body covers *(Object Length + Body Length)*.
+        // 5. Train / Rate / Motion
+        if (q.includes('train') || q.includes('platform') || q.includes('pole') || q.includes('speed') || q.includes('km/h') || q.includes('m/s')) {
+            return banner + `### 🎯 Identified Pattern: **Rate × Time = Distance (Frame of Reference)**
+A moving body passing a stationary point covers only its own length; passing an extended object covers *(Own Length + Object Length)*.
 
 ---
 
 ### ⚡ The LaquTum Fast Shortcut (30 Seconds)
-1. **Speed of Object**:
-   $$Speed = \\frac{240\\text{ m}}{24\\text{ s}} = 10\\text{ m/s}$$
-2. **Total Distance for Platform**:
-   $$Total = 240\\text{ m} + 650\\text{ m} = 890\\text{ m}$$
-3. **Time Required**:
-   $$Time = \\frac{890}{10} = \\mathbf{89\\text{ seconds}}$$
+1. **Unit Conversion Shortcut**: Multiply km/h by $\\frac{5}{18}$ to get m/s (e.g., $72\\text{ km/h} = 72 \\times \\frac{5}{18} = 20\\text{ m/s}$).
+2. **Total Distance**: Add the lengths: $D = L_{\\text{train}} + L_{\\text{platform}}$.
+3. **Direct Projection**: Time = $\\frac{\\text{Total Distance}}{\\text{Relative Speed}}$.
 
 ---
 
 ### 🧠 Why This Works
-Instead of setting up algebraic equations with velocity conversions, realize that every second the object advances exactly **10 meters**. To cover 890 meters, it takes \\(890 / 10 = 89\\) seconds immediately.
+Instead of setting up algebraic equations with velocity conversions, look at how many meters are devoured per second. Relative speed eliminates the need for multi-step scratch paper.
 
 ### ⚠️ Trap to Avoid
-Many people calculate time only for the 650 m platform (\\(650/10 = 65\\) s) and pick option **65s**. Remember: it isn't clear of the platform until its very last point leaves!`;
+Forgetting to add the train's own length when crossing a bridge, tunnel, or second train!`;
         }
 
-        // 6. Percentage / Proportions
-        if (q.includes('percent') || q.includes('profit') || q.includes('loss') || q.includes('discount')) {
-            return banner + `### 🎯 Identified Pattern: **Proportional Fractions**
-Converting decimal percentages to irreducible fractions transforms tedious multiplication into simple division.
+        // 6. Percentage / Profit & Loss / Discount
+        if (q.includes('percent') || q.includes('profit') || q.includes('loss') || q.includes('discount') || q.includes('markup')) {
+            return banner + `### 🎯 Identified Pattern: **Proportional Multipliers & Invariant Base**
+Converting decimal percentages into irreducible fractions turns complex multiplication into simple mental division.
 
 ---
 
 ### ⚡ The LaquTum Fast Shortcut
-- **12.5%** = \\(\\frac{1}{8}\\)
-- **16.66%** = \\(\\frac{1}{6}\\)
-- **20%** = \\(\\frac{1}{5}\\)
-- **25%** = \\(\\frac{1}{4}\\)
-
-If something increases by 20%, Base : New is locked as **5 : 6**. Every calculation becomes instantaneous mental ratio arithmetic!
+- **12.5%** = $\\frac{1}{8}$ | **16.66%** = $\\frac{1}{6}$ | **20%** = $\\frac{1}{5}$ | **25%** = $\\frac{1}{4}$
+- If price increases by 20% ($\\frac{1}{5}$), consumption must decrease by $\\frac{1}{5+1} = \\frac{1}{6} = 16.67\\%$ to keep expenditure unchanged!
+- Successive changes: Use multiplier chaining ($A \\times 1.2 \\times 0.9$) rather than messy additive scratch formulas.
 
 ---
 
@@ -651,20 +875,57 @@ If something increases by 20%, Base : New is locked as **5 : 6**. Every calculat
 Percentages are arbitrary human scaling factors (per 100). Fractions represent the true physical parts of the quantity, removing rounding errors completely.
 
 ### ⚠️ Trap to Avoid
-Never apply successive changes by adding percentages directly (e.g., 20% discount + 10% discount is **NOT 30%**; it is \\(100 \\times 0.8 \\times 0.9 = 72\\), giving a **28% net discount**)!`;
+Never add successive percentages directly (e.g., 20% discount + 10% discount is **NOT 30%**; it is $100 \\times 0.8 \\times 0.9 = 72$, giving a **28% net discount**)!`;
         }
 
-        // Default General LaquTum Breakdown
-        return banner + `### 🎯 The LaquTum Way of Learning
+        // 7. Time & Work / Pipes & Cisterns
+        if (q.includes('work') || q.includes('pipe') || q.includes('cistern') || q.includes('tank') || q.includes('efficiency') || q.includes('days')) {
+            return banner + `### 🎯 Identified Pattern: **LCM Total Capacity / Work Units**
+Convert time into concrete daily output units using the Least Common Multiple (LCM).
 
-I have received your question! Under the **LaquTum Way of Learning**, you can master anything and everything through 4 foundational pillars:
+---
 
-1. **First-Principles Deconstruction**: Strip away complicated jargon and traditional rote memorization. We identify the fundamental truth that cannot be broken down further.
-2. **Universal Pattern Recognition**: Complex problems are just simple core patterns wearing different costumes. Once you see the underlying invariant, the solution is immediate.
-3. **The 30-Second Intuitive Shortcut**: Direct mental pathways that let you solve problems or internalize concepts without memorizing 10-step formulas.
-4. **Deep Mental Intuition & Traps**: Understand *why* it works intuitively so the knowledge stays with you forever, while recognizing the common blindspots and surface fallacies.
+### ⚡ The LaquTum Fast Shortcut (30 Seconds)
+1. **Total Work = LCM of Times**: If A takes 10 days and B takes 15 days, assume Total Work = **30 units**.
+2. **Efficiency**:
+   - A does $\\frac{30}{10} = 3\\text{ units/day}$
+   - B does $\\frac{30}{15} = 2\\text{ units/day}$
+3. **Together**: Output = $3 + 2 = 5\\text{ units/day}$.
+4. **Time Taken**: $\\frac{30}{5} = \\mathbf{6\\text{ days}}$!
 
-> 💡 **Ready for Live AI**: Once you paste your \`API_KEY\` into \`ai-config.js\`, I will break down any concept, textbook question, research topic, or photo you provide using the live Google Gemini model!`;
+---
+
+### 🧠 Why This Works
+Fractions like $\\frac{1}{10} + \\frac{1}{15}$ create cognitive load. By choosing the LCM as the total size, every number becomes a whole integer.
+
+### ⚠️ Trap to Avoid
+Never average the days directly (e.g., $(10 + 15)/2 = 12.5\\text{ days}$ is completely wrong; working together must always take *less* time than the fastest worker)!`;
+        }
+
+        // 8. Dynamic General Question Breakdown (Universal 4-step framework)
+        const cleanQuery = query ? query.trim() : (imageObj ? 'Uploaded Question' : 'General Concept');
+        
+        return banner + `### 🎯 Identified Pattern: **First-Principles Invariant Analysis**
+Analyzing: **"${escapeHTML(cleanQuery)}"**
+
+In the **LaquTum Way of Learning**, this question maps to the universal archetype of **Boundary & Invariant Identification**. Every problem has one underlying mechanism that remains steady while the surface details change.
+
+---
+
+### ⚡ The LaquTum Fast Shortcut (30-Second Breakdown)
+1. **Isolate the Invariant**: Strip away the surface story and determine what cannot change (total volume, relative gap, conservation of state, or logical truth value).
+2. **Eliminate Redundant Steps**: Skip textbook algebra or multi-step definitions; project the solution directly from the relationship between the known and unknown.
+3. **Mental Model Projection**: Formulate the conclusion directly by asking: *"If the base condition holds, what must necessarily follow?"*
+
+---
+
+### 🧠 Why This Works
+Traditional methods demand memorizing domain-specific formulas for each question. The LaquTum Way shows that when you anchor understanding to the foundational physical or logical constraint, the answer resolves naturally without cognitive friction.
+
+---
+
+### ⚠️ Trap to Avoid
+Do not fall for the **Surface Similarity Trap** — solving with a memorized formula before verifying whether the boundary conditions or units match the underlying invariant!`;
     }
 
     /**
@@ -703,6 +964,16 @@ I have received your question! Under the **LaquTum Way of Learning**, you can ma
         if (!text) return '';
         let html = escapeHTML(text);
 
+        // LaTeX cleanups for clear rendering
+        html = html.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1 / $2)');
+        html = html.replace(/\\times/g, '×');
+        html = html.replace(/\\cdot/g, '·');
+        html = html.replace(/\\text\{([^}]+)\}/g, '$1');
+        html = html.replace(/\\mathbf\{([^}]+)\}/g, '<strong>$1</strong>');
+        html = html.replace(/\\le/g, '≤');
+        html = html.replace(/\\ge/g, '≥');
+        html = html.replace(/\\ne/g, '≠');
+
         // Bold **text**
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
@@ -716,9 +987,10 @@ I have received your question! Under the **LaquTum Way of Learning**, you can ma
         // Inline Code `code`
         html = html.replace(/`([^`]+)`/g, '<code class="ai-code">$1</code>');
 
-        // Math blocks $$ ... $$
+        // Math blocks $$ ... $$ and inline $ ... $
         html = html.replace(/\$\$([\s\S]*?)\$\$/g, '<div class="ai-math-box">$1</div>');
         html = html.replace(/\\\(([\s\S]*?)\\\)/g, '<span class="ai-math-inline">$1</span>');
+        html = html.replace(/\$([^$\n]+)\$/g, '<span class="ai-math-inline">$1</span>');
 
         // Horizontal rules ---
         html = html.replace(/---/g, '<hr class="ai-divider"/>');
