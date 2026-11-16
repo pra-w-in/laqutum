@@ -15,6 +15,7 @@ const ContentBank = (function () {
 
     // ─── Private state ───────────────────────────────────────────
     let _loaded = false;
+    let _loadingPromise = null;
     let _stats = null;
 
     // Indexes
@@ -27,38 +28,51 @@ const ContentBank = (function () {
     const _excludedPatterns = new Set();
 
     // ─── Initialization ──────────────────────────────────────────
-    async function init(bankUrl) {
-        if (_loaded) return;
+    function init(bankUrl) {
+        if (_loaded) return Promise.resolve();
+        if (_loadingPromise) return _loadingPromise;
 
-        const url = bankUrl || 'content-bank.json';
-        let data;
-
-        try {
-            if (typeof window === 'undefined' && typeof require !== 'undefined') {
-                const fs = require('fs');
-                const path = require('path');
-                const filePath = path.isAbsolute(url) ? url : path.join(process.cwd(), url);
-                data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            } else {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                data = await response.json();
+        const url = bankUrl || (typeof CONTENT_BANK_URL !== 'undefined' ? CONTENT_BANK_URL : 'content-bank.json');
+        _loadingPromise = (async () => {
+            let data;
+            try {
+                if (typeof window === 'undefined' && typeof require !== 'undefined') {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const filePath = path.isAbsolute(url) ? url : path.join(process.cwd(), url);
+                    data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                } else {
+                    async function fetchBank(source) {
+                        const response = await fetch(source, { signal: AbortSignal.timeout(10000) });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const bank = await response.json();
+                        validateBank(bank);
+                        return bank;
+                    }
+                    try { data = await fetchBank(url); }
+                    catch (error) {
+                        const bundled = new URL('content-bank.json', document.baseURI).href;
+                        if (new URL(url, document.baseURI).href === bundled) throw error;
+                        console.warn('[ContentBank] Remote content unavailable or invalid; using bundled lessons.');
+                        data = await fetchBank(bundled);
+                    }
+                }
+                validateBank(data);
+            } catch (e) {
+                _loadingPromise = null;
+                throw e;
             }
-        } catch (e) {
-            // console.error(`[ContentBank] Failed to load content bank from "${url}":`, e);
-            throw e;
-        }
 
-        _stats = data.stats;
-        const entries = data.entries || [];
+            _stats = data.stats;
+            const entries = data.entries || [];
 
-        // Populate live/excluded pattern sets
-        if (data.stats.patternsLive) {
-            data.stats.patternsLive.forEach(p => _livePatterns.add(p));
-        }
-        if (data.stats.patternsExcluded) {
-            data.stats.patternsExcluded.forEach(p => _excludedPatterns.add(p));
-        }
+            // Populate live/excluded pattern sets
+            if (data.stats && data.stats.patternsLive) {
+                data.stats.patternsLive.forEach(p => _livePatterns.add(p));
+            }
+            if (data.stats && data.stats.patternsExcluded) {
+                data.stats.patternsExcluded.forEach(p => _excludedPatterns.add(p));
+            }
 
         // Build indexes
         for (const entry of entries) {
@@ -98,9 +112,27 @@ const ContentBank = (function () {
 
         _loaded = true;
         console.log(`[ContentBank] Loaded ${entries.length} entries. Live patterns: ${[..._livePatterns].join(', ')}`);
-    }
+        return true;
+    })();
+
+    return _loadingPromise;
+}
 
     // ─── Lookup functions ────────────────────────────────────────
+
+    function validateBank(bank) {
+        if (!Array.isArray(bank.entries) || !bank.entries.length || !bank.stats?.patternsLive?.length) throw new Error('Invalid content bank');
+        const ids = new Set(bank.entries.map(e => e.id));
+        if (ids.size !== bank.entries.length) throw new Error('Duplicate lesson IDs');
+        function visit(value) {
+            if (!value || typeof value !== 'object') return;
+            for (const [key, target] of Object.entries(value)) {
+                if (['next', 'then', 'explanation_id'].includes(key) && typeof target === 'string' && target !== 'CONTINUE' && !ids.has(target)) throw new Error('Missing lesson: ' + target);
+                if (typeof target === 'object') visit(target);
+            }
+        }
+        bank.entries.forEach(visit);
+    }
 
     function getById(id) {
         _ensureLoaded();
@@ -238,6 +270,10 @@ const ContentBank = (function () {
 
     // ─── Internal helpers ────────────────────────────────────────
 
+    function isLoaded() {
+        return _loaded;
+    }
+
     function _ensureLoaded() {
         if (!_loaded) {
             throw new Error('[ContentBank] Not initialized. Call await ContentBank.init() first.');
@@ -247,6 +283,7 @@ const ContentBank = (function () {
     // ─── Public API ──────────────────────────────────────────────
     return {
         init,
+        isLoaded,
         getById,
         getByPattern,
         getQuestions,
@@ -265,6 +302,14 @@ const ContentBank = (function () {
         hasCostumeContent
     };
 })();
+
+if (typeof window !== 'undefined') {
+    window.ContentBank = ContentBank;
+    // Auto-preload in background on script load so content is ready before first click
+    ContentBank.init().catch(err => {
+        console.warn('[ContentBank] Auto-preload warning:', err);
+    });
+}
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ContentBank;

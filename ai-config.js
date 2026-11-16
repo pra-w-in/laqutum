@@ -3,25 +3,13 @@
  * 
  * --------------------------------------------------------------------------
  * INSTRUCTIONS FOR USER:
- * You can paste your Google Vertex AI or Google Gemini API credentials below.
- * Once pasted, the AI Tutor will connect live to Google's model.
+ * Configure GEMINI_API_KEY in Supabase function secrets; never in this file.
+ * The browser calls the authenticated ai-mentor function.
  * --------------------------------------------------------------------------
  */
 
 const VERTEX_AI_CONFIG = {
-    // =========================================================================
-    // 1. CREDENTIALS (PASTE HERE)
-    // =========================================================================
-
-    // OPTION A: Google Gemini / Vertex AI Studio API Key (Easiest & Recommended)
-    // Get your key from Google AI Studio (https://aistudio.google.com/) or Vertex AI:
-    API_KEY: 'AQ.Ab8RN6J2W6BH21A03qeil2OaYRUqLBFYCdCWmZHtyrfd8pVMLA', // User provided Google API key
-
-    // OPTION B: Google Cloud Vertex AI Project Endpoint (For GCP IAM / Service Accounts)
-    PROJECT_ID: '', // e.g. 'laqutum-production-123'
-    LOCATION: 'us-central1', // e.g. 'us-central1', 'asia-south1'
-    ACCESS_TOKEN: '', // OAuth Bearer token if connecting directly via GCP REST
-
+    // Public presentation defaults only. Server credentials are never bundled.
     // =========================================================================
     // 2. MODEL CONFIGURATION
     // =========================================================================

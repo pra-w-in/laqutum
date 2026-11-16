@@ -86,9 +86,9 @@ const BattleManager = (() => {
             <div class="battle-lobby-wrap">
                 <!-- Lobby Header -->
                 <div class="battle-lobby-header">
-                    <div class="battle-badge">⚔️ Real-Time 1vs1</div>
-                    <h1 class="battle-title">Aptitude <span class="highlight-violet">Showdown</span></h1>
-                    <p class="battle-subtitle">5 Minutes • Same Questions • Faster Brain Wins</p>
+                    <div class="battle-badge">PRACTICE WITH A PARTNER</div>
+                    <h1 class="battle-title">A friendly <span class="highlight-violet">challenge.</span></h1>
+                    <p class="battle-subtitle">Five minutes. The same questions. A fresh perspective.</p>
                 </div>
 
                 <!-- Lobby Grid (Host vs Join) -->
@@ -105,11 +105,11 @@ const BattleManager = (() => {
                         </div>
 
                         <!-- Room Code Display & Copy -->
-                        <div class="room-code-badge" id="btn-copy-code" title="Click to copy code">
+                        <button type="button" class="room-code-badge" id="btn-copy-code" title="Copy room code">
                             <span class="room-code-label">ROOM CODE:</span>
                             <span class="room-code-val">${roomCode}</span>
-                            <span class="copy-icon">📋</span>
-                        </div>
+                            <span class="copy-icon">Copy</span>
+                        </button>
                         <div class="copied-tooltip" id="copied-tooltip">Copied to clipboard!</div>
 
                         <!-- Waiting Status Pulse -->
@@ -152,9 +152,9 @@ const BattleManager = (() => {
 
                         <!-- Quick How It Works -->
                         <div class="battle-rules-box">
-                            <div class="rule-item">⏱️ <strong>5-Min Clock:</strong> Synchronized timer for both players.</div>
-                            <div class="rule-item">🔀 <strong>Scrambled Order:</strong> Same questions, different question positions!</div>
-                            <div class="rule-item">🏆 <strong>Winner:</strong> Highest score & fastest completion wins.</div>
+                            <div class="rule-item"><strong>5-Min Clock:</strong> Synchronized timer for both players.</div>
+                            <div class="rule-item"><strong>Scrambled Order:</strong> Same questions, different question positions!</div>
+                            <div class="rule-item"><strong>Winner:</strong> Highest score & fastest completion wins.</div>
                         </div>
                     </div>
                 </div>
@@ -190,10 +190,10 @@ const BattleManager = (() => {
                 });
             } catch (e) {
                 console.warn('[Battle] QRCode render error:', e);
-                qrContainer.innerHTML = `<div style="padding:20px;color:#fff;font-weight:700;">${roomCode}</div>`;
+                qrContainer.innerHTML = `<div style="padding:20px;color:#172b4d;font-weight:700;">${roomCode}</div>`;
             }
         } else {
-            qrContainer.innerHTML = `<div style="padding:20px;color:#fff;font-weight:700;">${roomCode}</div>`;
+            qrContainer.innerHTML = `<div style="padding:20px;color:#172b4d;font-weight:700;">${roomCode}</div>`;
         }
     }
 
@@ -516,7 +516,7 @@ const BattleManager = (() => {
                     numEl.style.animation = 'pulsePop 0.8s ease';
                 } else if (count === 0) {
                     numEl.textContent = 'START!';
-                    numEl.style.color = '#58cc02';
+                    numEl.style.color = '#34714e';
                 } else {
                     clearInterval(countInt);
                     launchBattleUI();
@@ -741,7 +741,7 @@ const BattleManager = (() => {
                     <div class="battle-waiting-finish-wrap">
                         <div class="finish-check-icon">✓</div>
                         <h2 class="finish-title">All Questions Submitted!</h2>
-                        <p class="finish-subtitle">Your Score: <strong style="color:#a855f7;">${totalScore}/${myResults.length}</strong> in ${formatTime(totalTime)}</p>
+                        <p class="finish-subtitle">Your Score: <strong style="color:#2458c6;">${totalScore}/${myResults.length}</strong> in ${formatTime(totalTime)}</p>
                         
                         <div class="waiting-opp-card">
                             <span class="waiting-dot"></span>
@@ -898,7 +898,7 @@ const BattleManager = (() => {
                             let speedWinner = '';
                             if (myTime > 0 && oppTime > 0) {
                                 if (myTime < oppTime) {
-                                    speedWinner = `<span class="speed-badge faster">⚡ You were ${oppTime - myTime}s faster!</span>`;
+                                    speedWinner = `<span class="speed-badge faster">You were ${oppTime - myTime}s faster!</span>`;
                                 } else if (oppTime < myTime) {
                                     speedWinner = `<span class="speed-badge slower">Opponent was ${myTime - oppTime}s faster</span>`;
                                 } else {
@@ -938,10 +938,10 @@ const BattleManager = (() => {
                 <!-- Showdown Action Buttons -->
                 <div class="showdown-actions">
                     <button class="showdown-btn rematch-btn" id="btn-play-again">
-                        ⚔️ Play Another Battle
+                        Play another challenge
                     </button>
                     <button class="showdown-btn home-btn" id="btn-battle-home">
-                        🏠 Back to Home
+                        Back to topics
                     </button>
                 </div>
             </div>
@@ -974,7 +974,7 @@ const BattleManager = (() => {
         modal.classList.remove('hidden');
 
         if (typeof Html5Qrcode === 'undefined') {
-            alert('Camera scanner library not loaded. You can enter the code manually.');
+            AppUI.notify('Camera scanner library not loaded. You can enter the code manually.');
             return;
         }
 
@@ -996,7 +996,7 @@ const BattleManager = (() => {
                 }
             ).catch(err => {
                 console.warn('[Battle Scanner] Camera start error:', err);
-                alert('Could not access camera. Please make sure camera permissions are allowed, or type the code manually.');
+                AppUI.notify('Could not access camera. Please make sure camera permissions are allowed, or type the code manually.');
                 closeCameraScanner();
             });
         } catch (e) {

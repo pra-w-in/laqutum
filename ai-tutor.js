@@ -75,25 +75,8 @@ const AITutor = (() => {
      * Retrieve active API Key from localStorage or config
      */
     function getActiveApiKey() {
-        const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-        const configKey = (config && config.API_KEY) ? config.API_KEY.trim() : '';
-
-        if (typeof localStorage !== 'undefined') {
-            const stored = localStorage.getItem('laqutum_ai_key');
-            if (stored && stored.trim()) {
-                const trimmed = stored.trim();
-                // If stored key matches known blocked key, clear and substitute config key
-                if (trimmed.includes('63L6ewrAnI4XYd4mjmKEMuA') || trimmed.includes('API_KEY_SERVICE_BLOCKED')) {
-                    localStorage.removeItem('laqutum_ai_key');
-                    if (configKey) {
-                        localStorage.setItem('laqutum_ai_key', configKey);
-                        return configKey;
-                    }
-                }
-                return trimmed;
-            }
-        }
-        return configKey;
+        try { localStorage.removeItem('laqutum_ai_key'); } catch (e) {}
+        return '';
     }
 
     /**
@@ -126,32 +109,32 @@ const AITutor = (() => {
                 <!-- Chat Top Header -->
                 <div class="ai-chat-header">
                     <div class="ai-header-left">
-                        <div class="ai-avatar-icon">✨</div>
+                        <div class="ai-avatar-icon">L</div>
                         <div class="ai-header-info">
                             <div class="ai-header-title">
-                                <span>LaquTum AI</span>
-                                <span class="ai-model-tag">${hasKey ? 'Vertex AI' : 'LaquTum Engine'}</span>
+                                <span>Your mentor</span>
+                                <span class="ai-model-tag">LaquTum Mentor</span>
                             </div>
                             <div class="ai-header-sub">
                                 <span class="ai-status-dot"></span>
-                                <span>The LaquTum Way of Learning • Universal Mentor</span>
+                                <span>A little guidance, when you need it.</span>
                             </div>
                         </div>
                     </div>
                     <div class="ai-header-actions">
-                        <button class="ai-action-btn" id="ai-btn-api-key" title="API Key Settings">
+                        <button class="ai-action-btn" id="ai-btn-api-key" title="Check mentor status" aria-label="Check mentor status">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="7.5" cy="15.5" r="4.5"/>
                                 <path d="m21 3-9.5 9.5"/>
                                 <path d="m15.5 7.5 3 3"/>
                             </svg>
-                            <span class="btn-text-desktop">API Key</span>
+                            <span class="btn-text-desktop">Status</span>
                         </button>
                         <button class="ai-action-btn" id="ai-btn-new-chat" title="Start New Chat">
                             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M12 5v14M5 12h14"/>
                             </svg>
-                            <span class="btn-text-desktop">New Chat</span>
+                            <span class="btn-text-desktop">New</span>
                         </button>
                     </div>
                 </div>
@@ -191,7 +174,7 @@ const AITutor = (() => {
                         <textarea 
                             id="ai-query-input" 
                             class="ai-query-textarea" 
-                            placeholder="Ask anything and learn the LaquTum way, or snap a photo of any question..." 
+                            placeholder="Ask a question, or add a photo…" 
                             rows="1"
                         ></textarea>
 
@@ -202,44 +185,15 @@ const AITutor = (() => {
                             </svg>
                             <div class="ai-send-spinner"></div>
                         </button>
-                        <div class="ai-funky-hint" id="ai-funky-hint">Hold tight! Cooking clarity... ⚡</div>
+                        <div class="ai-funky-hint" id="ai-funky-hint">Working through your question…</div>
                     </div>
 
                     <div class="ai-input-footnote">
-                        Powered by Google Vertex AI • The LaquTum Way of Learning
+                        LaquTum Mentor · Check important answers against your working.
                     </div>
                 </div>
 
-                <!-- API Key Configuration Modal -->
-                <div class="ai-modal-backdrop" id="ai-key-modal" style="display: none;">
-                    <div class="ai-modal-card">
-                        <div class="ai-modal-header">
-                            <div class="ai-modal-title">
-                                <span>🔑</span> Google Gemini / Vertex AI Key
-                            </div>
-                            <button type="button" class="ai-modal-close" id="ai-btn-close-key-modal">&times;</button>
-                        </div>
-                        <div class="ai-modal-body">
-                            <p class="ai-modal-desc">
-                                Paste your Google AI Studio or Vertex AI key below. Once saved, LaquTum AI connects directly to Google's live model.
-                            </p>
-                            <div class="ai-key-input-wrap">
-                                <input type="text" id="ai-key-input-field" class="ai-key-input" placeholder="Paste your API key (e.g. AIza... or AQ...)" />
-                            </div>
-                            <div id="ai-key-status-msg" class="ai-key-status"></div>
-                            <div class="ai-key-actions">
-                                <button type="button" class="ai-btn-primary" id="ai-btn-save-key">Save & Connect</button>
-                                <button type="button" class="ai-btn-secondary" id="ai-btn-clear-key">Clear Key</button>
-                            </div>
-                            <div class="ai-key-help">
-                                <strong>💡 Need a free Google API key?</strong><br>
-                                1. Visit <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio (aistudio.google.com)</a><br>
-                                2. Click <strong>"Create API key"</strong> ➔ Select <strong>"Create key in new project"</strong><br>
-                                3. Copy & paste that key here!
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
             </div>
         `;
 
@@ -254,44 +208,44 @@ const AITutor = (() => {
         return `
             <div class="ai-welcome-hero">
                 <div class="ai-welcome-badge">
-                    <span>⚡ THE LAQUTUM WAY OF LEARNING</span>
+                    <span>ASK YOUR TUTOR</span>
                 </div>
-                <h2 class="ai-welcome-title">Learn Anything & Everything</h2>
+                <h2 class="ai-welcome-title">What do you need help with?</h2>
                 <p class="ai-welcome-desc">
-                    Ask any concept, question, or upload a photo of your notes or problems. Learn it through the <strong>LaquTum Way of Learning</strong> — first-principles intuition, deep mental models, and instant 30-second clarity with zero rote memorization!
+                    Type a question or add a photo. Your tutor will explain it one small step at a time.
                 </p>
 
                 <!-- Starter Prompt Chips -->
                 <div class="ai-starters-grid">
-                    <button class="ai-starter-chip" data-prompt="Teach me how the LaquTum Way of Learning breaks down any complex subject from first principles.">
+                    <button class="ai-starter-chip" data-prompt="Explain percentages to me in very simple words, with one easy example.">
                         <span class="chip-icon">🧠</span>
                         <div class="chip-content">
-                            <strong>First-Principles Mastery</strong>
-                            <span>Break down any subject to foundational truth</span>
+                            <strong>Explain percentages simply</strong>
+                            <span>Use easy words and one example</span>
                         </div>
                     </button>
 
-                    <button class="ai-starter-chip" data-prompt="Show me how the LaquTum Pattern Recognition framework lets me understand difficult concepts in 30 seconds.">
+                    <button class="ai-starter-chip" data-prompt="I am stuck on a question. Help me find only the first step without giving the full answer yet.">
                         <span class="chip-icon">⚡</span>
                         <div class="chip-content">
-                            <strong>30-Second Mental Clarity</strong>
-                            <span>Grasp deep concepts without memorizing formulas</span>
+                            <strong>Help me start a question</strong>
+                            <span>Show only the first step</span>
                         </div>
                     </button>
 
-                    <button class="ai-starter-chip" data-prompt="How do I spot hidden patterns across mathematics, logic, science, and real-world systems the LaquTum way?">
+                    <button class="ai-starter-chip" data-prompt="Show me one easy worked example and explain every step.">
                         <span class="chip-icon">🔍</span>
                         <div class="chip-content">
-                            <strong>Universal Pattern Recognition</strong>
-                            <span>Connect invisible dots across diverse topics</span>
+                            <strong>Show a worked example</strong>
+                            <span>Explain every step</span>
                         </div>
                     </button>
 
-                    <button class="ai-starter-chip" data-prompt="Explain a tough, counter-intuitive idea to me using the 4-step LaquTum Way (Pattern, Shortcut, Intuition, Trap).">
+                    <button class="ai-starter-chip" data-prompt="I will paste my answer. Check it and tell me where I made a mistake using simple words.">
                         <span class="chip-icon">🎯</span>
                         <div class="chip-content">
-                            <strong>4-Step Mental Model</strong>
-                            <span>Pattern • Shortcut • Deep Intuition • Traps</span>
+                            <strong>Check my answer</strong>
+                            <span>Find the mistake and show the fix</span>
                         </div>
                     </button>
                 </div>
@@ -353,98 +307,10 @@ const AITutor = (() => {
         const fileInput = $('ai-camera-input');
         const newChatBtn = $('ai-btn-new-chat');
 
-        const apiKeyBtn = $('ai-btn-api-key');
-        const keyModal = $('ai-key-modal');
-        const closeKeyModalBtn = $('ai-btn-close-key-modal');
-        const saveKeyBtn = $('ai-btn-save-key');
-        const clearKeyBtn = $('ai-btn-clear-key');
-        const keyInput = $('ai-key-input-field');
-        const keyStatusMsg = $('ai-key-status-msg');
-
-        // API Key Settings Modal
-        if (apiKeyBtn && keyModal) {
-            apiKeyBtn.addEventListener('click', () => {
-                const currentKey = getActiveApiKey();
-                if (keyInput) keyInput.value = currentKey;
-                if (keyStatusMsg) {
-                    if (currentKey) {
-                        const masked = currentKey.length > 10 ? (currentKey.substring(0, 6) + '...' + currentKey.slice(-4)) : currentKey;
-                        keyStatusMsg.className = 'ai-key-status info';
-                        keyStatusMsg.textContent = `Current Active Key: ${masked}`;
-                    } else {
-                        keyStatusMsg.className = 'ai-key-status';
-                        keyStatusMsg.textContent = '';
-                    }
-                }
-                keyModal.style.display = 'flex';
-            });
-        }
-
-        if (closeKeyModalBtn && keyModal) {
-            closeKeyModalBtn.addEventListener('click', () => {
-                keyModal.style.display = 'none';
-            });
-        }
-
-        if (keyModal) {
-            keyModal.addEventListener('click', (e) => {
-                if (e.target === keyModal) keyModal.style.display = 'none';
-            });
-        }
-
-        if (saveKeyBtn && keyInput) {
-            saveKeyBtn.addEventListener('click', async () => {
-                const val = keyInput.value.trim();
-                if (!val) {
-                    if (keyStatusMsg) {
-                        keyStatusMsg.className = 'ai-key-status error';
-                        keyStatusMsg.textContent = 'Please enter an API key.';
-                    }
-                    return;
-                }
-                
-                if (keyStatusMsg) {
-                    keyStatusMsg.className = 'ai-key-status info';
-                    keyStatusMsg.textContent = '⏳ Testing live connection with Google Gemini...';
-                }
-                saveKeyBtn.disabled = true;
-
-                const testResult = await testApiKey(val);
-                saveKeyBtn.disabled = false;
-
-                if (testResult.success) {
-                    localStorage.setItem('laqutum_ai_key', val);
-                    if (window.VERTEX_AI_CONFIG) window.VERTEX_AI_CONFIG.API_KEY = val;
-                    if (keyStatusMsg) {
-                        keyStatusMsg.className = 'ai-key-status success';
-                        keyStatusMsg.textContent = '✅ Connected! Live Google Gemini is active.';
-                    }
-                    setTimeout(() => {
-                        if (keyModal) keyModal.style.display = 'none';
-                        renderChatUI();
-                    }, 1000);
-                } else {
-                    if (keyStatusMsg) {
-                        keyStatusMsg.className = 'ai-key-status error';
-                        keyStatusMsg.innerHTML = `<strong>❌ Google rejected this key:</strong><br>${escapeHTML(testResult.message)}<br><small style="color:#94a3b8">Make sure to create the key in Google AI Studio via "Create key in new project".</small>`;
-                    }
-                }
-            });
-        }
-
-        if (clearKeyBtn) {
-            clearKeyBtn.addEventListener('click', () => {
-                localStorage.removeItem('laqutum_ai_key');
-                if (keyInput) keyInput.value = '';
-                if (keyStatusMsg) {
-                    keyStatusMsg.className = 'ai-key-status info';
-                    keyStatusMsg.textContent = 'Key cleared from local storage. Reverted to default config.';
-                }
-                setTimeout(() => {
-                    renderChatUI();
-                }, 800);
-            });
-        }
+        const connectionBtn = $('ai-btn-api-key');
+        if (connectionBtn) connectionBtn.addEventListener('click', () => {
+            AppUI.notify('Sign in to use the LaquTum mentor. No personal API key is needed.');
+        });
 
         // New Chat
         if (newChatBtn) {
@@ -536,7 +402,7 @@ const AITutor = (() => {
      */
     function handleImageFile(file) {
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file.');
+            AppUI.notify('Please select an image file.');
             return;
         }
 
@@ -586,41 +452,9 @@ const AITutor = (() => {
             return;
         }
 
-        // Check if user is pasting an API key directly in chat (e.g. AQ.Ab8... or AIzaSy...)
-        const isKeyPattern = !attachedImage && /^(AQ\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35})$/.test(text.trim());
-        if (isKeyPattern) {
-            const keyToTest = text.trim();
-            if (textarea) {
-                textarea.value = '';
-                textarea.style.height = 'auto';
-            }
-            const masked = keyToTest.length > 10 ? (keyToTest.substring(0, 6) + '...' + keyToTest.slice(-4)) : keyToTest;
-            messages.push({
-                role: 'user',
-                text: `🔑 Activated API Key: \`${masked}\``,
-                timestamp: Date.now()
-            });
-            isThinking = true;
-            updateFeedUI();
-
-            const testResult = await testApiKey(keyToTest);
-            isThinking = false;
-            if (testResult.success) {
-                localStorage.setItem('laqutum_ai_key', keyToTest);
-                if (window.VERTEX_AI_CONFIG) window.VERTEX_AI_CONFIG.API_KEY = keyToTest;
-                messages.push({
-                    role: 'model',
-                    text: `✅ **Google Gemini API Connected!**\n\nYour key is active and successfully verified live with Google Gemini.\n\nYou can now ask any question, topic, or concept — I will teach you using the **LaquTum Way of Learning**!`,
-                    timestamp: Date.now()
-                });
-            } else {
-                messages.push({
-                    role: 'model',
-                    text: `⚠️ **Key Verification Notice:**\n${testResult.message}\n\nPlease check your key in [Google AI Studio](https://aistudio.google.com/app/apikey).`,
-                    timestamp: Date.now()
-                });
-            }
-            updateFeedUI();
+        if (/^(AQ\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35})$/.test(text)) {
+            textarea.value = '';
+            AppUI.notify('Please do not share API keys in chat. AI access is configured securely by the app administrator.');
             return;
         }
 
@@ -669,7 +503,7 @@ const AITutor = (() => {
         } catch (err) {
             console.error('[AITutor] Query error:', err);
             // Fallback gracefully to LaquTum Methodology solver so the user ALWAYS gets an answer
-            const fallbackText = generateMethodologyFallback(userMsg.text, imagePayload);
+            const fallbackText = 'The AI mentor is temporarily unavailable. Please try again shortly. Your lessons and practice are still available.';
             messages.push({
                 role: 'model',
                 text: fallbackText,
@@ -685,247 +519,14 @@ const AITutor = (() => {
     /**
      * Test connection to Google Gemini API with a specific key
      */
-    async function testApiKey(key) {
-        if (!key) return { success: false, message: 'Please enter an API key.' };
-        try {
-            const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-            const model = (config && config.MODEL) ? config.MODEL : 'gemini-flash-latest';
-
-            // 1. Try standard endpoint ?key=
-            let res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: [{ text: 'Hello' }] }]
-                })
-            });
-
-            // 2. If 401 and starts with AQ., try header
-            if (!res.ok && key.startsWith('AQ.')) {
-                res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`,
-                        'x-goog-api-key': key
-                    },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: 'Hello' }] }]
-                    })
-                });
-            }
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.candidates && data.candidates[0]?.content) {
-                    return { success: true, message: 'Live Gemini connection confirmed!' };
-                }
-            }
-
-            const errData = await res.json().catch(() => ({}));
-            const reason = errData.error?.details?.[0]?.reason || errData.error?.status || '';
-            const msg = errData.error?.message || `HTTP ${res.status}`;
-            return {
-                success: false,
-                reason: reason,
-                message: reason ? `${reason}: ${msg}` : msg
-            };
-        } catch (e) {
-            return { success: false, message: e.message || 'Network error connecting to Google.' };
-        }
-    }
-
-    /**
-     * Query Vertex AI or Google Gemini API
-     */
     async function queryVertexAI(userQuery, imageObj) {
-        const config = (typeof window !== 'undefined' && window.VERTEX_AI_CONFIG) ? window.VERTEX_AI_CONFIG : null;
-        const activeKey = getActiveApiKey();
-        const configKey = (config && config.API_KEY) ? config.API_KEY.trim() : '';
-        const accessToken = config ? config.ACCESS_TOKEN : '';
-        const model = (config && config.MODEL) ? config.MODEL : 'gemini-flash-latest';
-
-        // Gather candidate keys to try (active first, config fallback)
-        const keysToTry = [];
-        if (activeKey) keysToTry.push(activeKey);
-        if (configKey && !keysToTry.includes(configKey)) keysToTry.push(configKey);
-
-        // 1. IF API KEY IS PRESENT
-        if (keysToTry.length > 0) {
-            // Build parts
-            const parts = [];
-            if (imageObj && imageObj.base64) {
-                parts.push({
-                    inlineData: {
-                        mimeType: imageObj.mimeType || 'image/jpeg',
-                        data: imageObj.base64
-                    }
-                });
-            }
-            if (userQuery) {
-                parts.push({ text: userQuery });
-            } else if (imageObj) {
-                parts.push({ text: 'Please extract the concept or question from this photo and break it down using the 4-step LaquTum Way of Learning.' });
-            }
-
-            // Build recent history (up to last 6 messages) strictly alternating turns
-            const contents = [];
-            const recent = messages.slice(0, -1).slice(-6);
-            let lastRole = null;
-            for (const m of recent) {
-                if (m.text && m.text.trim()) {
-                    const r = m.role === 'user' ? 'user' : 'model';
-                    if (r !== lastRole) {
-                        contents.push({
-                            role: r,
-                            parts: [{ text: m.text.trim() }]
-                        });
-                        lastRole = r;
-                    }
-                }
-            }
-            if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
-                contents.pop();
-            }
-            contents.push({
-                role: 'user',
-                parts: parts
-            });
-
-            const body = {
-                contents: contents,
-                system_instruction: {
-                    parts: [{ text: (config && config.SYSTEM_INSTRUCTION) || 'Solve using the 4-step LaquTum Way of Learning.' }]
-                },
-                generationConfig: {
-                    temperature: (config && config.TEMPERATURE) || 0.2,
-                    topP: (config && config.TOP_P) || 0.95,
-                    maxOutputTokens: (config && config.MAX_OUTPUT_TOKENS) || 2048
-                }
-            };
-
-            let lastErrDetail = '';
-
-            for (const currentKey of keysToTry) {
-                const attempts = [];
-
-                // Standard Gemini API Key endpoint (?key=)
-                attempts.push({
-                    name: 'Gemini API (?key=)',
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(currentKey)}`,
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                // Gemini API with x-goog-api-key header
-                attempts.push({
-                    name: 'Gemini API (Header)',
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': currentKey
-                    }
-                });
-
-                // If key starts with AQ.
-                if (currentKey.startsWith('AQ.')) {
-                    attempts.push({
-                        name: 'Generative Language (Bearer)',
-                        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${currentKey}`,
-                            'x-goog-api-key': currentKey
-                        }
-                    });
-                }
-
-                let keyRejected = false;
-
-                for (const attempt of attempts) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-                        const res = await fetch(attempt.url, {
-                            method: 'POST',
-                            headers: attempt.headers,
-                            body: JSON.stringify(body),
-                            signal: controller.signal
-                        });
-                        clearTimeout(timeoutId);
-
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data.candidates && data.candidates[0]?.content?.parts) {
-                                // If this key worked, store it in localStorage so future requests use this valid key
-                                if (typeof localStorage !== 'undefined') {
-                                    localStorage.setItem('laqutum_ai_key', currentKey);
-                                }
-                                return data.candidates[0].content.parts.map(p => p.text).join('\n');
-                            }
-                        } else {
-                            const errData = await res.json().catch(() => ({}));
-                            const reason = errData.error?.details?.[0]?.reason || '';
-                            const msg = errData.error?.message || `HTTP ${res.status}`;
-                            lastErrDetail = msg;
-                            if (reason === 'API_KEY_SERVICE_BLOCKED' || msg.includes('API_KEY_SERVICE_BLOCKED') || res.status === 400 || res.status === 403) {
-                                keyRejected = true;
-                                break;
-                            }
-                        }
-                    } catch (e) {
-                        lastErrDetail = e.message;
-                    }
-                }
-
-                if (keyRejected) {
-                    // Try next candidate key
-                    continue;
-                }
-            }
-
-            console.warn('[AITutor] Gemini API attempts failed:', lastErrDetail);
-            // Fallback dynamically to LaquTum Methodology engine so student always gets an answer!
-            const fallbackText = generateMethodologyFallback(userQuery, imageObj);
-            return fallbackText;
-        }
-
-        // 2. IF ACCESS TOKEN / VERTEX REST ENDPOINT (Option B)
-        if (accessToken && config.PROJECT_ID) {
-            const loc = config.LOCATION || 'us-central1';
-            const endpoint = `https://${loc}-aiplatform.googleapis.com/v1/projects/${config.PROJECT_ID}/locations/${loc}/publishers/google/models/${model}:generateContent`;
-
-            const parts = [];
-            if (imageObj && imageObj.base64) {
-                parts.push({
-                    inlineData: {
-                        mimeType: imageObj.mimeType || 'image/jpeg',
-                        data: imageObj.base64
-                    }
-                });
-            }
-            if (userQuery) parts.push({ text: userQuery });
-
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: parts }]
-                })
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                return data.candidates[0].content.parts[0].text;
-            }
-        }
-
-        // 3. FALLBACK: INTELLIGENT SIMULATED METHODOLOGY ENGINE (Until user pastes API credentials)
-        await new Promise(r => setTimeout(r, 600)); // natural reading pause
-        return generateMethodologyFallback(userQuery, imageObj);
+        const data = await SecureAPI.call('ai-mentor', {
+            query: userQuery,
+            image: imageObj ? { base64: imageObj.base64, mimeType: imageObj.mimeType } : null,
+            history: messages.slice(0, -1).slice(-6).map(m => ({ role: m.role, text: m.text }))
+        });
+        if (!data.text) throw new Error('No response received.');
+        return data.text;
     }
 
     /**

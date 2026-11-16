@@ -110,11 +110,13 @@ const AuthManager = (function () {
             return null;
         }
 
-        let { data: progress } = await supabaseClient
+        let { data: progress, error: progressError } = await supabaseClient
             .from('user_progress')
             .select('*')
             .eq('user_id', user.id)
             .maybeSingle();
+
+        if (progressError) throw new Error('Unable to load saved progress. Please try again.');
 
         if (progress) {
             // Auto-repair missing or outdated email in user_progress
@@ -185,6 +187,11 @@ const AuthManager = (function () {
             };
         }
 
+        const { data: pass, error: passError } = await supabaseClient.from('placement_passes')
+            .select('expires_at').eq('user_id', user.id).maybeSingle();
+        _currentUserCache.isPaidTier = !passError && !!pass && new Date(pass.expires_at).getTime() > Date.now();
+        _currentUserCache.paidTierExpiresAt = pass?.expires_at || null;
+        if (typeof UserStorage !== 'undefined') UserStorage.hydrate(user.id, progress);
         return _currentUserCache;
     }
 
@@ -223,7 +230,7 @@ const AuthManager = (function () {
 
         if (error) {
             console.error('Failed to save progress to Supabase:', error);
-            return user;
+            throw new Error('Unable to save progress. Please try again.');
         }
 
         await getCurrentUser(); // refresh cache
@@ -384,6 +391,13 @@ const AuthManager = (function () {
         const closeBtn = document.getElementById('authModalClose');
         if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);
 
+        const overlay = document.getElementById('authModalOverlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeAuthModal();
+            });
+        }
+
         const switchToSignup = document.getElementById('switchToSignup');
         const switchToSignin = document.getElementById('switchToSignin');
         const formSignup = document.getElementById('formSignup');
@@ -408,6 +422,11 @@ const AuthManager = (function () {
         if (formSignup) {
             formSignup.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const submit = formSignup.querySelector('[type="submit"]');
+                if (submit.disabled) return;
+                const originalLabel = submit.textContent;
+                submit.disabled = true; submit.textContent = 'Creating your account…';
+                formSignup.setAttribute('aria-busy', 'true');
                 if (signupError) signupError.classList.add('hidden');
                 const name = document.getElementById('signupName').value;
                 const email = document.getElementById('signupEmail').value;
@@ -427,6 +446,9 @@ const AuthManager = (function () {
                         signupError.textContent = err.message;
                         signupError.classList.remove('hidden');
                     }
+                } finally {
+                    submit.disabled = false; submit.textContent = originalLabel;
+                    formSignup.removeAttribute('aria-busy');
                 }
             });
         }
@@ -434,6 +456,11 @@ const AuthManager = (function () {
         if (formSignin) {
             formSignin.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const submit = formSignin.querySelector('[type="submit"]');
+                if (submit.disabled) return;
+                const originalLabel = submit.textContent;
+                submit.disabled = true; submit.textContent = 'Signing in…';
+                formSignin.setAttribute('aria-busy', 'true');
                 if (signinError) signinError.classList.add('hidden');
                 const email = document.getElementById('signinEmail').value;
                 const password = document.getElementById('signinPassword').value;
@@ -451,6 +478,9 @@ const AuthManager = (function () {
                         signinError.textContent = err.message;
                         signinError.classList.remove('hidden');
                     }
+                } finally {
+                    submit.disabled = false; submit.textContent = originalLabel;
+                    formSignin.removeAttribute('aria-busy');
                 }
             });
         }

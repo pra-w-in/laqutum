@@ -14,13 +14,39 @@ const PreviewApp = (() => {
     let hearts = 5;
     let quizResults = [];  // { pattern, correct, responseTimeMs }
     let lessonStep = 0;
-    let currentLesson = null;
     let engineReady = false;
+    let engineInitPromise = null;
+
+    async function ensureEngineReady() {
+        if (engineReady && typeof ContentBank !== 'undefined' && ContentBank.isLoaded && ContentBank.isLoaded()) {
+            return true;
+        }
+        if (engineInitPromise) return engineInitPromise;
+        engineInitPromise = (async () => {
+            try {
+                if (typeof ContentBank !== 'undefined') {
+                    await ContentBank.init(typeof CONTENT_BANK_URL !== 'undefined' ? CONTENT_BANK_URL : 'content-bank.json');
+                }
+                if (typeof ConfidenceTracker !== 'undefined') {
+                    ConfidenceTracker.init();
+                }
+                engineReady = true;
+                console.log('[PreviewApp] Engine successfully verified & ready');
+                return true;
+            } catch (e) {
+                console.error('[PreviewApp] Engine init error:', e);
+                engineInitPromise = null;
+                return false;
+            }
+        })();
+        return engineInitPromise;
+    }
+
     let questionStartTime = 0; // For tracking response speed
     let currentQuizQuestions = []; // Real content bank questions for diagnostic
     let currentPatternFlow = null; // Current pattern being taught
     let currentFlowEntries = []; // Entries for current teaching flow
-    let currentFlowIndex = 0;
+    let currentDashboardTab = 'patterns'; // 'patterns' (default All Topics) | 'route' | 'notebook' | 'coverage'
 
     // ---------- Data ----------
     const surveyQuestions = [
@@ -290,7 +316,11 @@ const PreviewApp = (() => {
 
     function setProgress(pct) {
         const bar = $('.preview-progress-bar');
-        if (bar) bar.style.width = pct + '%';
+        if (bar) {
+            const value = Math.max(0, Math.min(100, Number(pct) || 0));
+            bar.style.width = value + '%';
+            bar.parentElement?.setAttribute('aria-valuenow', String(Math.round(value)));
+        }
     }
 
     function updateStats() {
@@ -303,14 +333,41 @@ const PreviewApp = (() => {
     }
 
     function showScreen(id) {
+        if (id !== 'screen-battle' && $('#screen-battle')?.classList.contains('active') && typeof BattleManager !== 'undefined') {
+            BattleManager.cleanup();
+        }
         $$('.preview-screen').forEach(s => s.classList.remove('active'));
         const target = document.getElementById(id);
-        if (target) target.classList.add('active');
+        if (target) {
+            target.classList.add('active');
+            document.getElementById('preview-overlay')?.setAttribute('data-screen', id);
+            target.setAttribute('tabindex', '-1');
+            requestAnimationFrame(() => {
+                const focusTarget = target.querySelector('h1, h2, h3, [data-screen-title]') || target;
+                if (!focusTarget.hasAttribute('tabindex')) focusTarget.setAttribute('tabindex', '-1');
+                focusTarget.focus({ preventScroll: true });
+            });
+        }
+        const main = document.querySelector('.preview-main');
+        if (main) main.scrollTop = 0;
+        document.querySelector('.feedback-drawer')?.classList.remove('show');
+        const back = document.getElementById('pv-back');
+        if (back) {
+            const home = id === 'screen-dashboard' && currentDashboardTab === 'patterns' && state === 'CHOICE';
+            back.style.visibility = home ? 'hidden' : 'visible';
+            const backLabel = id === 'screen-dashboard' && currentDashboardTab !== 'patterns'
+                ? 'Back to topics'
+                : (id === 'screen-lesson' || id === 'screen-quiz')
+                    ? 'Leave lesson and return to topics'
+                    : 'Back to learning home';
+            back.setAttribute('aria-label', backLabel);
+            back.title = backLabel;
+        }
 
         // Hide bottom nav on all screens except the main dashboard, battle, and ask screens
         const nav = document.getElementById('overlay-bottom-nav');
         if (nav) {
-            if (id === 'screen-dashboard' || id === 'screen-battle' || id === 'screen-ask') {
+            if (id === 'screen-dashboard' || id === 'screen-battle' || id === 'screen-ask' || id === 'screen-socio') {
                 nav.style.display = 'flex';
             } else {
                 nav.style.display = 'none';
@@ -319,28 +376,27 @@ const PreviewApp = (() => {
     }
 
     function setMascot(container, mood, text) {
-        container.innerHTML = `
-            <div class="mascot-wrap">
-                ${getMascotSVG(mood)}
-                <div class="mascot-bubble">${text}</div>
-            </div>
-        `;
-        setTimeout(() => {
-            const svg = container.querySelector('.mascot-svg');
-            if (svg) { svg.classList.add('bounce'); setTimeout(() => svg.classList.remove('bounce'), 600); }
-        }, 50);
+        const copy = String(text).replace(/\p{Extended_Pictographic}|\uFE0F/gu, '').trim();
+        container.innerHTML = `<div class="lesson-context"><p>${AppUI.formatText(copy)}</p></div>`;
     }
 
     function showFeedback(isCorrect, explanation, onContinue) {
         const drawer = $('#feedback-drawer');
+        drawer.querySelector('.comprehension-checkpoint')?.remove();
         drawer.className = 'feedback-drawer show ' + (isCorrect ? 'correct-drawer' : 'incorrect-drawer');
-        drawer.querySelector('.feedback-title').textContent = isCorrect ? '🎉 Correct!' : '😅 Not quite!';
+        const title = drawer.querySelector('.feedback-title');
+        title.textContent = isCorrect ? 'Correct — well done' : 'Not correct yet — let’s fix it';
         drawer.querySelector('.feedback-explanation').innerHTML = explanation;
         $('.preview-action-bar').classList.add('hidden');
+        requestAnimationFrame(() => title.focus({ preventScroll: true }));
 
         const btn = drawer.querySelector('.feedback-btn');
+        btn.style.display = '';
+        btn.disabled = false;
         btn.textContent = 'Continue';
         btn.onclick = () => {
+            if (btn.disabled) return;
+            btn.disabled = true;
             drawer.className = 'feedback-drawer';
             if (isCorrect) {
                 xp += 10;
@@ -362,16 +418,18 @@ const PreviewApp = (() => {
     function showRichFeedback(entry, isCorrect, onRoute) {
         const drawer = $('#feedback-drawer');
         drawer.className = 'feedback-drawer show ' + (isCorrect ? 'correct-drawer' : 'incorrect-drawer');
-        drawer.querySelector('.feedback-title').textContent = isCorrect ? '🎉 Correct!' : '😅 Not quite!';
+        const title = drawer.querySelector('.feedback-title');
+        title.textContent = isCorrect ? 'Correct — well done' : 'Not correct yet — let’s fix it';
 
         // Build rich explanation
-        let explanationHTML = `<strong>Trick:</strong> ${entry.trick || ''}`;
-        if (entry.why) explanationHTML += `<br><br><strong>Why:</strong> ${entry.why}`;
-        if (!isCorrect && entry.why_others_wrong) explanationHTML += `<br><br><strong>Why others are wrong:</strong> ${entry.why_others_wrong}`;
-        if (entry.trap_type && entry.trap_explanation) explanationHTML += `<br><br><strong>🪤 Trap (${entry.trap_type}):</strong> ${entry.trap_explanation}`;
+        let explanationHTML = `<strong>Quick method:</strong> ${AppUI.formatText(entry.trick || '')}`;
+        if (entry.why) explanationHTML += `<br><br><strong>Why it works:</strong> ${AppUI.formatText(entry.why)}`;
+        if (!isCorrect && entry.why_others_wrong) explanationHTML += `<br><br><strong>Why the other answers do not work:</strong> ${AppUI.formatText(entry.why_others_wrong)}`;
+        if (entry.trap_type && entry.trap_explanation) explanationHTML += `<br><br><strong>Common mistake:</strong> ${AppUI.formatText(entry.trap_explanation)}`;
 
         drawer.querySelector('.feedback-explanation').innerHTML = explanationHTML;
         $('.preview-action-bar').classList.add('hidden');
+        requestAnimationFrame(() => title.focus({ preventScroll: true }));
 
         // Update stats
         if (isCorrect) {
@@ -398,13 +456,11 @@ const PreviewApp = (() => {
         const checkpoint = entry.post_answer_checkpoint;
 
         checkpointDiv.innerHTML = `
-            <div style="margin-top:16px;font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">How well did you understand?</div>
+            <div style="margin-top:16px;font-size:0.85rem;font-weight:700;color:#657169;margin-bottom:10px;">What would help you now?</div>
             <div style="display:flex;flex-direction:column;gap:8px;">
-                <button class="comp-btn" data-comp="understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(88,204,2,0.3);background:rgba(88,204,2,0.08);color:#58cc02;font-weight:600;font-size:0.88rem;cursor:pointer;">✅ Fully understood</button>
-                <button class="comp-btn" data-comp="slightly_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:#fbbf24;font-weight:600;font-size:0.88rem;cursor:pointer;">🤔 Got the gist, want to see more</button>
-                <button class="comp-btn" data-comp="some_doubts" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.08);color:#3b82f6;font-weight:600;font-size:0.88rem;cursor:pointer;">❓ Mostly clear, one point unclear</button>
-                <button class="comp-btn" data-comp="cant_apply_but_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;font-weight:600;font-size:0.88rem;cursor:pointer;">🔧 Makes sense but can't apply it</button>
-                <button class="comp-btn" data-comp="nothing_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444;font-weight:600;font-size:0.88rem;cursor:pointer;">😵 Didn't understand at all</button>
+                <button class="comp-btn" data-comp="understood">I understand — continue</button>
+                <button class="comp-btn" data-comp="slightly_understood">Show me another example</button>
+                <button class="comp-btn" data-comp="nothing_understood">Explain it more simply</button>
             </div>
         `;
 
@@ -472,16 +528,22 @@ const PreviewApp = (() => {
         q.options.forEach((opt, i) => {
             const btn = document.createElement('button');
             btn.className = 'option-card';
+            btn.type = 'button';
+            btn.setAttribute('aria-pressed', 'false');
             let bars = '';
             for (let b = 0; b < 5; b++) {
                 const h = 6 + b * 4;
                 const active = b < opt.level;
-                bars += `<div class="bar" style="height:${h}px;${active ? 'background:#58cc02;' : ''}"></div>`;
+                bars += `<div class="bar" style="height:${h}px;${active ? 'background:#e8f2e9;' : ''}"></div>`;
             }
             btn.innerHTML = `<span class="option-level">${bars}</span><span>${opt.text}</span>`;
             btn.addEventListener('click', () => {
-                optList.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+                optList.querySelectorAll('.option-card').forEach(c => {
+                    c.classList.remove('selected');
+                    c.setAttribute('aria-pressed', 'false');
+                });
                 btn.classList.add('selected');
+                btn.setAttribute('aria-pressed', 'true');
                 selectedOption = i;
                 updateCheckBtn(true);
             });
@@ -584,8 +646,8 @@ const PreviewApp = (() => {
         const tag = document.createElement('div');
         tag.style.cssText = 'text-align:center;margin-bottom:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
         tag.innerHTML = `
-            <span style="padding:4px 14px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:999px;font-size:0.75rem;font-weight:700;color:var(--accent-3);text-transform:uppercase;letter-spacing:0.08em;">${patternLabel}</span>
-            <span style="padding:4px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:999px;font-size:0.75rem;font-weight:700;color:#3b82f6;text-transform:capitalize;">${topicLabel}</span>
+            <span style="padding:4px 14px;background:rgba(66, 100, 81, 0.1);border:1px solid rgba(66, 100, 81, 0.16);border-radius:999px;font-size:0.75rem;font-weight:700;color:var(--accent-3);text-transform:uppercase;letter-spacing:0.08em;">${patternLabel}</span>
+            <span style="padding:4px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:999px;font-size:0.75rem;font-weight:700;color:#385f75;text-transform:capitalize;">${topicLabel}</span>
         `;
 
         const optList = document.createElement('div');
@@ -593,10 +655,16 @@ const PreviewApp = (() => {
         q.options.forEach((opt, i) => {
             const btn = document.createElement('button');
             btn.className = 'option-card';
-            btn.innerHTML = `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;color:var(--text-muted);">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+            btn.type = 'button';
+            btn.setAttribute('aria-pressed', 'false');
+            btn.innerHTML = `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(36, 48, 40, 0.12);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;color:var(--text-muted);">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
             btn.addEventListener('click', () => {
-                optList.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+                optList.querySelectorAll('.option-card').forEach(c => {
+                    c.classList.remove('selected');
+                    c.setAttribute('aria-pressed', 'false');
+                });
                 btn.classList.add('selected');
+                btn.setAttribute('aria-pressed', 'true');
                 selectedOption = i;
                 updateCheckBtn(true);
             });
@@ -634,6 +702,8 @@ const PreviewApp = (() => {
             if (i === q.correct_index) c.classList.add('correct');
             else if (i === selectedOption && !isCorrect) c.classList.add('incorrect');
             c.style.pointerEvents = 'none';
+            c.disabled = true;
+            c.setAttribute('aria-disabled', 'true');
         });
 
         // Update mascot
@@ -644,8 +714,8 @@ const PreviewApp = (() => {
         }
 
         let explanation = '';
-        if (q.trick) explanation += `<strong>Trick:</strong> ${q.trick}<br><br>`;
-        if (q.why) explanation += `<strong>Why:</strong> ${q.why}`;
+        if (q.trick) explanation += `<strong>Quick method:</strong> ${AppUI.formatText(q.trick)}<br><br>`;
+        if (q.why) explanation += `<strong>Why it works:</strong> ${AppUI.formatText(q.why)}`;
         
         showFeedback(isCorrect, explanation, () => {
             quizStep++;
@@ -728,7 +798,7 @@ const PreviewApp = (() => {
                     <div style="font-size:3.2rem;margin-bottom:16px;">😉🎲📚</div>
                     <div class="study-section-title" style="justify-content:center;font-size:1.4rem;">Let's Find Your Real Superpower!</div>
                     <div style="font-size:1rem;color:var(--text-secondary);line-height:1.65;margin:16px 0 28px;">
-                        We love your curiosity and speed! ⚡ But taking the diagnostic test <strong>genuinely</strong> is the secret to unlocking your real potential.<br><br>
+                        We love your curiosity and speed! But taking the diagnostic test <strong>genuinely</strong> is the secret to unlocking your real potential.<br><br>
                         When you work out the steps honestly, it helps us find exactly where you are weak so we can tailor your study feed, fix tricky concepts, and make you improve drastically in half the time!
                     </div>
                     <button class="results-cta" id="retake-quiz-btn" style="width:100%;font-size:1.05rem;">Take Diagnostic Test Genuinely 🚀</button>
@@ -832,217 +902,229 @@ const PreviewApp = (() => {
         const container = document.getElementById('dashboard-content');
         if (!container) return;
 
-        const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
-
         container.innerHTML = `
             <div class="user-home-wrap">
-                <!-- Hero Title & Visual Banner (Visual shows on PC/Laptop, hidden on Mobile) -->
-                <div class="user-home-hero">
-                    <div class="user-home-hero-text">
-                        <h1 class="user-home-title">Crack the <span class="highlight-violet">pattern</span>,<br>not your head</h1>
-                        <div class="user-home-pill">
-                            <span class="pill-dot">⚡</span>
-                            <span>Aptitude Pattern Model</span>
-                            <span class="pill-refresh">🔄</span>
-                        </div>
-                    </div>
-                    <div class="user-home-hero-visual">
-                        <img src="assests/hero-illustration.png" alt="Aptitude Preparation" class="hero-visual-img" loading="eager" />
-                    </div>
-                </div>
+                <!-- Minimalist Quick Tools Switcher (All Topics is default Home) -->
+                <nav class="dashboard-view-tabs" id="dash-view-tabs" aria-label="Learning tools">
+                    <button type="button" class="dashboard-view-tab ${currentDashboardTab === 'patterns' ? 'active' : ''}" aria-pressed="${currentDashboardTab === 'patterns'}" data-dtab="patterns">Topics</button>
+                    <button type="button" class="dashboard-view-tab ${currentDashboardTab === 'route' ? 'active' : ''}" aria-pressed="${currentDashboardTab === 'route'}" data-dtab="route">My plan</button>
+                    <button type="button" class="dashboard-view-tab ${currentDashboardTab === 'notebook' ? 'active' : ''}" aria-pressed="${currentDashboardTab === 'notebook'}" data-dtab="notebook">My mistakes</button>
+                    <button type="button" class="dashboard-view-tab ${currentDashboardTab === 'coverage' ? 'active' : ''}" aria-pressed="${currentDashboardTab === 'coverage'}" data-dtab="coverage">Exam guide</button>
+                </nav>
 
-                <!-- Continuous Smooth Left-to-Right Moving Topic Chips -->
-                <div class="horizontal-chips-wrapper">
-                    <div class="marquee-track row-marquee-1">
-                        <div class="marquee-content">
-                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
-                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
-                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
-                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
-                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
-                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
-                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
-                        </div>
-                        <div class="marquee-content" aria-hidden="true">
-                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
-                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
-                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
-                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
-                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
-                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
-                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
-                        </div>
-                    </div>
-
-                    <div class="marquee-track row-marquee-2">
-                        <div class="marquee-content">
-                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
-                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
-                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
-                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
-                        </div>
-                        <div class="marquee-content" aria-hidden="true">
-                            <div class="topic-chip" data-topic="time-work"><span class="chip-icon">🔧</span> Time & Work</div>
-                            <div class="topic-chip" data-topic="age-problems"><span class="chip-icon">🎂</span> Problems on Ages</div>
-                            <div class="topic-chip" data-topic="probability"><span class="chip-icon">🎲</span> Probability</div>
-                            <div class="topic-chip" data-topic="percentages"><span class="chip-icon">📊</span> Percentages & Shortcuts</div>
-                            <div class="topic-chip" data-topic="si-ci"><span class="chip-icon">🏦</span> Simple & Compound Interest</div>
-                            <div class="topic-chip" data-topic="profit-loss"><span class="chip-icon">💰</span> Profit, Loss & Discount</div>
-                            <div class="topic-chip" data-topic="ratio"><span class="chip-icon">⚖️</span> Ratio & Proportion</div>
-                            <div class="topic-chip" data-topic="trains"><span class="chip-icon">🚆</span> Problems on Trains</div>
-                            <div class="topic-chip" data-topic="averages"><span class="chip-icon">📈</span> Averages & Weighted Mean</div>
-                            <div class="topic-chip" data-topic="partnership"><span class="chip-icon">🤝</span> Partnership</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section Header -->
-                <div class="user-section-header">
-                    <h2>Ride the Placement Trend</h2>
-                    <span class="section-filter-icon">≡</span>
-                </div>
-
-                <!-- Company Target Cards (Visual 4-Column Grid) -->
-                <div class="company-cards-grid">
-                    <div class="company-card card-purple" data-topic="percentages" id="card-infosys">
-                        <div class="company-card-img-wrap">
-                            <img src="assests/infosys.png" alt="Infosys & TCS" class="company-card-img" />
-                        </div>
-                        <div class="company-card-illustration-wrap bg-purple">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-3.05 11a22.35 22.35 0 0 1-3.95 2z"/><path d="M9 12l-5 5"/><path d="M12 9l5-5"/></svg>
-                        </div>
-                        <div class="company-card-content">
-                            <h3 class="company-card-title">Crack Infosys & TCS</h3>
-                            <p class="company-card-desc">Master high-frequency speed arithmetic and percentage shortcuts.</p>
-                            <div class="company-card-action">
-                                <span class="company-action-btn btn-purple">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="company-card card-pink" data-topic="seating-linear" id="card-accenture">
-                        <div class="company-card-img-wrap">
-                            <img src="assests/accenture.png" alt="Accenture & Wipro" class="company-card-img img-accenture" />
-                        </div>
-                        <div class="company-card-illustration-wrap bg-pink">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                        </div>
-                        <div class="company-card-content">
-                            <h3 class="company-card-title">Crack Accenture & Wipro</h3>
-                            <p class="company-card-desc">Recognize pattern knots in logical reasoning & seating arrangements.</p>
-                            <div class="company-card-action">
-                                <span class="company-action-btn btn-pink">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="company-card card-blue" data-topic="probability" id="card-amazon">
-                        <div class="company-card-img-wrap">
-                            <img src="assests/amazon_4k.png" alt="Amazon & Product" class="company-card-img" />
-                        </div>
-                        <div class="company-card-illustration-wrap bg-blue">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M11 3 8 9l3 12"/><path d="M13 3l3 6-3 12"/><path d="M2 9h20"/></svg>
-                        </div>
-                        <div class="company-card-content">
-                            <h3 class="company-card-title">Crack Amazon & Product</h3>
-                            <p class="company-card-desc">Conquer probability, permutations, and speed algebra questions.</p>
-                            <div class="company-card-action">
-                                <span class="company-action-btn btn-blue">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="company-card card-green" data-topic="hcf-lcm" id="card-gate">
-                        <div class="company-card-img-wrap">
-                            <img src="assests/iitm.png" alt="GATE & Aptitude" class="company-card-img" />
-                        </div>
-                        <div class="company-card-illustration-wrap bg-green">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5F5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
-                        </div>
-                        <div class="company-card-content">
-                            <h3 class="company-card-title">Crack GATE & Aptitude</h3>
-                            <p class="company-card-desc">Master modular arithmetic, prime factors, and HCF/LCM patterns.</p>
-                            <div class="company-card-action">
-                                <span class="company-action-btn btn-green">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Active View Container -->
+                <div id="dash-active-tab-container"></div>
             </div>
         `;
 
-        // Wire topic chips
-        container.querySelectorAll('.topic-chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                const topicId = chip.dataset.topic;
-                const found = allAptitudeTopics.find(t => t.id === topicId);
-                if (found) {
-                    selectedPickerTopic = found;
-                    const mapping = TOPIC_MAPPING[topicId];
-                    if (mapping) {
-                        checkPaywallAndStart(topicId, () => startPatternFlow(mapping.pattern, mapping.costumes));
-                    }
-                }
+        // Keep tool tabs predictable: a selected tab stays selected until Back is used.
+        container.querySelectorAll('.dashboard-view-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const clickedTab = tab.dataset.dtab;
+                currentDashboardTab = clickedTab;
+                container.querySelectorAll('.dashboard-view-tab').forEach(t => t.classList.remove('active'));
+                container.querySelectorAll('.dashboard-view-tab').forEach(t => t.setAttribute('aria-pressed', String(t === tab)));
+                tab.classList.add('active');
+                renderActiveDashboardTab();
             });
         });
 
-        // Wire company cards
-        container.querySelectorAll('.company-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const topicId = card.dataset.topic;
-                const found = allAptitudeTopics.find(t => t.id === topicId);
-                if (found) {
-                    selectedPickerTopic = found;
-                    const mapping = TOPIC_MAPPING[topicId];
-                    if (mapping) {
-                        checkPaywallAndStart(topicId, () => startPatternFlow(mapping.pattern, mapping.costumes));
-                    }
-                }
-            });
-        });
-
-        // Wire overlay bottom nav
+        renderActiveDashboardTab();
         wireAppBottomNav('home');
         $('.preview-action-bar').classList.add('hidden');
+    }
+
+    function renderActiveDashboardTab() {
+        const target = document.getElementById('dash-active-tab-container');
+        if (!target) return;
+
+        if (currentDashboardTab === 'route') {
+            if (typeof RouteManager !== 'undefined') {
+                target.innerHTML = `
+                    <div style="margin-bottom: 12px;">
+                        <button type="button" class="dashboard-back-topics-btn" id="dash-back-topics">
+                            ← Back to topics
+                        </button>
+                    </div>
+                    <div id="route-manager-inner"></div>
+                `;
+                const backBtn = target.querySelector('#dash-back-topics');
+                if (backBtn) {
+                    backBtn.addEventListener('click', () => {
+                        currentDashboardTab = 'patterns';
+                        renderPostResultsChoice();
+                    });
+                }
+                RouteManager.renderRouteView(target.querySelector('#route-manager-inner'), handleRouteAction);
+            } else {
+                renderPatternsDashboardView(target);
+            }
+        } else if (currentDashboardTab === 'notebook') {
+            if (typeof MistakeNotebook !== 'undefined') {
+                target.innerHTML = `
+                    <div style="margin-bottom: 12px;">
+                        <button type="button" class="dashboard-back-topics-btn" id="dash-back-topics">
+                            ← Back to topics
+                        </button>
+                    </div>
+                    <div id="notebook-inner"></div>
+                `;
+                const backBtn = target.querySelector('#dash-back-topics');
+                if (backBtn) {
+                    backBtn.addEventListener('click', () => {
+                        currentDashboardTab = 'patterns';
+                        renderPostResultsChoice();
+                    });
+                }
+                MistakeNotebook.renderNotebookScreen(target.querySelector('#notebook-inner'), () => {
+                    currentDashboardTab = 'patterns';
+                    renderPostResultsChoice();
+                });
+            }
+        } else if (currentDashboardTab === 'coverage') {
+            if (typeof CoverageMap !== 'undefined') {
+                target.innerHTML = `
+                    <div style="margin-bottom: 12px;">
+                        <button type="button" class="dashboard-back-topics-btn" id="dash-back-topics">
+                            ← Back to topics
+                        </button>
+                    </div>
+                    <div id="coverage-inner"></div>
+                `;
+                const backBtn = target.querySelector('#dash-back-topics');
+                if (backBtn) {
+                    backBtn.addEventListener('click', () => {
+                        currentDashboardTab = 'patterns';
+                        renderPostResultsChoice();
+                    });
+                }
+                CoverageMap.renderCoverageScreen(target.querySelector('#coverage-inner'), () => {
+                    currentDashboardTab = 'patterns';
+                    renderPostResultsChoice();
+                });
+            }
+        } else {
+            // Default Home View: All Topics
+            renderPatternsDashboardView(target);
+        }
+    }
+
+    function handleRouteAction(data) {
+        if (!data) return;
+        if (data.action === 'open_pattern') {
+            const found = allAptitudeTopics.find(t => t.id === data.topic);
+            if (found) selectedPickerTopic = found;
+            const mapping = TOPIC_MAPPING[data.topic];
+            checkPaywallAndStart(data.topic, () => {
+                startPatternFlow(data.pattern, mapping ? mapping.costumes : []);
+            });
+        } else if (data.action === 'open_checkpoint') {
+            showScreen('screen-quiz');
+            if (typeof CheckpointsEngine !== 'undefined') {
+                CheckpointsEngine.startCheckpoint(document.getElementById('quiz-content'), data.checkpointNumber, () => {
+                    showScreen('screen-dashboard');
+                    renderPostResultsChoice();
+                });
+            }
+        } else if (data.action === 'open_notebook') {
+            currentDashboardTab = 'notebook';
+            renderPostResultsChoice();
+        } else if (data.action === 'open_first_move_drills') {
+            // First move drills
+            if (typeof PracticeEngine !== 'undefined' && engineReady) {
+                const targetPattern = data.pattern || 'P3';
+                const questions = ContentBank.getQuestions(targetPattern) || [];
+                if (questions.length > 0) {
+                    showScreen('screen-quiz');
+                    PracticeEngine.renderIndependentQuestion(document.getElementById('quiz-content'), questions[0], () => {
+                        showScreen('screen-dashboard');
+                        renderPostResultsChoice();
+                    });
+                }
+            }
+        } else if (data.action === 'open_diagnostic') {
+            renderQuiz();
+        }
+    }
+
+    function renderPatternsDashboardView(target) {
+        const learner = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
+        const starters = new Set(['percentages', 'ratio', 'averages', 'time-work', 'hcf-lcm', 'number-series']);
+        const resume = allAptitudeTopics.find(t => {
+            const p = learner?.topicProgress?.[t.id];
+            return p && !p.completed && Number.isInteger(p.flowIndex) && p.flowIndex >= 0;
+        });
+        const next = resume || allAptitudeTopics.find(t => t.id === 'percentages');
+        const complete = allAptitudeTopics.filter(t => learner?.topicProgress?.[t.id]?.completed).length;
+        const categories = [...new Set(allAptitudeTopics.map(t => t.category))];
+        target.innerHTML = `
+            <header class="workspace-heading"><div><h1>Your learning desk</h1><p>Choose a topic. Understand the pattern. Put it into practice.</p></div><span class="learning-count">${complete} of ${allAptitudeTopics.length} topics completed</span></header>
+            <section class="next-lesson" aria-label="Your next lesson">
+                <div class="next-lesson-marker" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M8 5h16v23l-8-5-8 5V5Z" stroke="currentColor" stroke-width="2"/></svg></div>
+                <div class="next-lesson-copy"><p>${resume ? 'Continue where you left off' : 'A good place to start'}</p><h2>${next.label}</h2><span>${resume ? 'Your saved progress is ready.' : 'A short explanation, a worked example, then your turn.'}</span></div>
+                <button class="home-start-btn" id="workspace-continue">${resume ? 'Continue lesson' : 'Start learning'} <span aria-hidden="true">→</span></button>
+            </section>
+            <section class="topic-workspace" aria-labelledby="study-library">
+                <div class="library-heading"><h2 id="study-library">Topic library</h2><p>Learn at your own pace. Hints are available in every practice session.</p></div>
+                <div class="library-controls"><div class="topic-search-wrap"><label for="all-topics-live-search">Find a topic</label><input type="search" id="all-topics-live-search" placeholder="Search percentages, time and work…" autocomplete="off"></div><div class="topic-category-wrap"><label for="workspace-category">Category</label><select id="workspace-category"><option value="all">All topics</option><option value="starter">Suggested starting topics</option>${categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select></div></div>
+                <p id="library-result-count" class="library-result-count" role="status" aria-live="polite"></p>
+                <div class="topic-list-head" aria-hidden="true"><span>Topic</span><span>Progress</span><span>Action</span></div>
+                <div id="all-topics-grid-container" class="topic-list"></div>
+            </section>
+            <details class="exam-shortcuts"><summary>Practice shortcuts by exam interest</summary><p>These open individual lessons, not a complete exam syllabus.</p><div class="exam-shortcut-links"><button class="company-card" id="card-infosys" data-topic="percentages">Infosys &amp; TCS · Percentages</button><button class="company-card" id="card-accenture" data-topic="seating-linear">Accenture &amp; Wipro · Seating</button><button class="company-card" id="card-amazon" data-topic="probability">Product companies · Probability</button><button class="company-card" id="card-gate" data-topic="hcf-lcm">GATE &amp; beyond · HCF and LCM</button></div></details>`;
+        function openTopic(id) {
+            const topic = allAptitudeTopics.find(t => t.id === id);
+            if (!topic) return;
+            selectedPickerTopic = topic;
+            const mapping = TOPIC_MAPPING[id];
+            checkPaywallAndStart(id, () => mapping ? startPatternFlow(mapping.pattern, mapping.costumes) : renderTopicStudyPage(topic));
+        }
+        target.querySelector('#workspace-continue').onclick = () => openTopic(next.id);
+        target.querySelectorAll('.company-card').forEach(button => button.onclick = () => openTopic(button.dataset.topic));
+        const search = target.querySelector('#all-topics-live-search');
+        const category = target.querySelector('#workspace-category');
+        const list = target.querySelector('#all-topics-grid-container');
+        function renderTopics() {
+            const query = search.value.trim().toLowerCase();
+            const topics = allAptitudeTopics.filter(t => (category.value === 'all' || (category.value === 'starter' ? starters.has(t.id) : t.category === category.value)) && (t.label + ' ' + t.category).toLowerCase().includes(query));
+            target.querySelector('#library-result-count').textContent = `${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}${category.value !== 'all' ? ' in this selection' : ''}`;
+            if (!topics.length) {
+                list.innerHTML = '<div class="topic-empty"><h3>No matching topics</h3><p>Try another word or clear your filters to see the full library.</p><button id="clear-topic-filters">Clear search and filters</button></div>';
+                list.querySelector('button').onclick = () => { search.value = ''; category.value = 'all'; renderTopics(); search.focus(); };
+                return;
+            }
+            list.innerHTML = topics.map(t => {
+                const saved = learner?.topicProgress?.[t.id];
+                const status = saved?.completed ? 'Completed' : saved ? 'In progress' : 'Not started';
+                const action = saved?.completed ? 'Review' : saved ? 'Continue' : 'Start';
+                return `<button class="dashboard-topic-card" data-topic="${t.id}"><span class="topic-card-title"><strong>${t.label}</strong><small>${t.category}</small></span><span class="topic-state ${saved?.completed ? 'is-complete' : saved ? 'is-progress' : ''}">${status}</span><span class="topic-card-detail">${action}<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="1.7"/></svg></span></button>`;
+            }).join('');
+            list.querySelectorAll('[data-topic]').forEach(button => button.onclick = () => openTopic(button.dataset.topic));
+        }
+        search.addEventListener('input', renderTopics);
+        category.addEventListener('change', renderTopics);
+        renderTopics();
     }
 
     function wireAppBottomNav(activeId) {
         const homeBtn = document.getElementById('app-nav-home');
         const askBtn = document.getElementById('app-nav-ask');
+        const socioBtn = document.getElementById('app-nav-socio');
         const topicsBtn = document.getElementById('app-nav-topics');
         const battleBtn = document.getElementById('app-nav-battle');
         const accessBtn = document.getElementById('app-nav-access');
 
         const nav = document.getElementById('overlay-bottom-nav');
         if (nav && activeId) {
-            nav.querySelectorAll('.app-bottom-nav-item').forEach(item => item.classList.remove('active'));
+            nav.querySelectorAll('.app-bottom-nav-item').forEach(item => { item.classList.remove('active'); item.removeAttribute('aria-current'); });
             const activeItem = document.getElementById(`app-nav-${activeId}`);
-            if (activeItem) activeItem.classList.add('active');
+            if (activeItem) { activeItem.classList.add('active'); activeItem.setAttribute('aria-current', 'page'); }
         }
 
         if (homeBtn && !homeBtn.dataset.wired) {
             homeBtn.dataset.wired = 'true';
             homeBtn.addEventListener('click', () => {
+                currentDashboardTab = 'patterns';
                 renderPostResultsChoice();
             });
         }
@@ -1052,6 +1134,16 @@ const PreviewApp = (() => {
                 state = 'ASK';
                 if (typeof AITutor !== 'undefined') {
                     AITutor.openChat();
+                }
+            });
+        }
+        if (socioBtn && !socioBtn.dataset.wired) {
+            socioBtn.dataset.wired = 'true';
+            socioBtn.addEventListener('click', () => {
+                state = 'SOCIO';
+                wireAppBottomNav('socio');
+                if (typeof SocioManager !== 'undefined') {
+                    SocioManager.open();
                 }
             });
         }
@@ -1095,31 +1187,31 @@ const PreviewApp = (() => {
         container.innerHTML = `
             <div class="user-home-wrap" style="text-align:center;">
                 <div class="user-home-hero" style="margin-bottom:28px;">
-                    <div style="width:72px;height:72px;border-radius:50%;background:rgba(139,92,246,0.15);border:2px solid #8B5CF6;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 14px;box-shadow:0 0 24px rgba(139,92,246,0.35);">
+                    <div style="width:72px;height:72px;border-radius:50%;background:rgba(66, 100, 81, 0.15);border:2px solid #426451;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 14px;box-shadow:none;">
                         👤
                     </div>
-                    <h2 style="font-size:1.6rem;font-weight:800;color:#F5F5FA;margin:0 0 4px 0;">${userName}</h2>
-                    <div style="font-size:0.85rem;color:#9E9EB0;">${userEmail}</div>
+                    <h2 style="font-size:1.6rem;font-weight:800;color:#222e28;margin:0 0 4px 0;">${userName}</h2>
+                    <div style="font-size:0.85rem;color:#657169;">${userEmail}</div>
                 </div>
 
                 <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:28px;">
                     <div class="company-card" style="padding:18px;">
-                        <div style="font-size:0.75rem;font-weight:700;color:#8B5CF6;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Main Target Goal</div>
-                        <div style="font-size:1.1rem;font-weight:800;color:#F5F5FA;">🎯 ${targetExam}</div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#426451;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Main Target Goal</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:#222e28;">${targetExam}</div>
                     </div>
 
                     <div class="company-card" style="padding:18px;">
-                        <div style="font-size:0.75rem;font-weight:700;color:#FF5C7A;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Aptitude Knowledge Level</div>
-                        <div style="font-size:1.1rem;font-weight:800;color:#F5F5FA;">⚡ ${aptitudeLevel}</div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#426451;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Aptitude Knowledge Level</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:#222e28;">${aptitudeLevel}</div>
                     </div>
 
                     <div class="company-card" style="padding:18px;">
-                        <div style="font-size:0.75rem;font-weight:700;color:#38BDF8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Access Engine</div>
-                        <div style="font-size:1.1rem;font-weight:800;color:#F5F5FA;">💎 LaquTum Full Pattern Engine Access</div>
+                        <div style="font-size:0.75rem;font-weight:700;color:#385f75;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Access Engine</div>
+                        <div style="font-size:1.1rem;font-weight:800;color:#222e28;">💎 LaquTum Full Pattern Engine Access</div>
                     </div>
                 </div>
 
-                <button id="access-logout-btn" style="width:100%;padding:14px;background:rgba(255,92,122,0.15);border:1px solid rgba(255,92,122,0.4);color:#FF5C7A;border-radius:16px;font-weight:800;cursor:pointer;transition:all 0.2s ease;">
+                <button id="access-logout-btn" style="width:100%;padding:14px;background:rgba(255,92,122,0.15);border:1px solid rgba(255,92,122,0.4);color:#426451;border-radius:16px;font-weight:800;cursor:pointer;transition:all 0.2s ease;">
                     Sign Out / Switch Account
                 </button>
             </div>
@@ -1165,12 +1257,12 @@ const PreviewApp = (() => {
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span style="font-size:1.5rem;">${icon}</span>
                         <div>
-                            <div style="font-weight:700;font-size:0.95rem;color:#fff;">${name}</div>
+                            <div style="font-weight:700;font-size:0.95rem;color:#222e28;">${name}</div>
                             <div style="font-size:0.75rem;color:var(--text-muted);">${questions} questions</div>
                         </div>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="flex:1;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+                        <div style="flex:1;height:6px;background:rgba(36, 48, 40, 0.08);border-radius:3px;overflow:hidden;">
                             <div style="height:100%;width:${val}%;background:${levelColor};border-radius:3px;"></div>
                         </div>
                         <span style="font-size:0.7rem;font-weight:700;color:${levelColor};text-transform:uppercase;">${levelLabel}</span>
@@ -1332,12 +1424,12 @@ const PreviewApp = (() => {
         container.appendChild(mascotArea);
         container.innerHTML += `
             <div class="study-page-wrap" style="max-width:680px;text-align:center;padding:20px 14px 60px;">
-                <div class="study-section-card" style="padding:42px 36px;background:#18181b;border:2px solid rgba(168,85,247,0.35);box-shadow:0 24px 64px rgba(0,0,0,0.65), 0 0 30px rgba(124,58,237,0.2);position:relative;overflow:hidden;">
+                <div class="study-section-card" style="padding:42px 36px;background:#ffffff;border:2px solid rgba(66, 100, 81, 0.16);box-shadow:none;position:relative;overflow:hidden;">
                     <div style="position:absolute;top:-60px;right:-60px;width:160px;height:160px;background:var(--accent-gradient-vibrant);filter:blur(65px);opacity:0.35;pointer-events:none;"></div>
                     
                     <div style="font-size:3.5rem;margin-bottom:18px;animation:rootPulse 2.5s infinite;">🪓✨🌳</div>
                     
-                    <div style="font-size:1.95rem;font-weight:900;color:#ffffff;line-height:1.4;letter-spacing:-0.02em;text-shadow:0 2px 16px rgba(0,0,0,0.5);margin:0 auto 16px;max-width:580px;">
+                    <div style="font-size:1.95rem;font-weight:900;color:#222e28;line-height:1.4;letter-spacing:-0.02em;text-shadow:none;margin:0 auto 16px;max-width:580px;">
                         "Give me six hours to chop down a tree and I will spend the first four sharpening the axe."
                     </div>
                     
@@ -1345,15 +1437,15 @@ const PreviewApp = (() => {
                         — Abraham Lincoln
                     </div>
                     
-                    <div style="font-size:0.98rem;color:var(--text-secondary);line-height:1.68;margin:0 auto 32px;max-width:560px;background:rgba(255,255,255,0.035);padding:20px 24px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);text-align:left;">
-                        <div style="margin-bottom:12px;text-align:center;">You chose to master <strong style="color:#fff;font-size:1.06rem;">${topic.icon} ${topic.label}</strong>.</div>
+                    <div style="font-size:0.98rem;color:var(--text-secondary);line-height:1.68;margin:0 auto 32px;max-width:560px;background:rgba(36, 48, 40, 0.035);padding:20px 24px;border-radius:14px;border:1px solid rgba(36, 48, 40, 0.08);text-align:left;">
+                        <div style="margin-bottom:12px;text-align:center;">You chose to master <strong style="color:#222e28;font-size:1.06rem;">${topic.icon} ${topic.label}</strong>.</div>
                         <div style="color:var(--text-primary);">
                             <strong style="color:var(--accent-3);">Aptitude is truly about mastering the mathematics and the subtle nuances of math.</strong> Just as chopping down a massive tree requires a razor-sharp blade, conquering competitive aptitude requires understanding the deeper mathematical logic, underlying formulas, and problem-solving nuances.<br><br>
                             Instead of rushing straight into complex calculations, let's spend the next few moments <strong>sharpening your mental axe</strong> so every calculation becomes effortless and precise!
                         </div>
                     </div>
 
-                    <button class="results-cta" id="start-sharpened-study-btn" style="width:100%;font-size:1.1rem;padding:16px;box-shadow:0 8px 28px rgba(124,58,237,0.5);">
+                    <button class="results-cta" id="start-sharpened-study-btn" style="width:100%;font-size:1.1rem;padding:16px;box-shadow:none;">
                         Begin Training — Sharpen My Axe 🚀
                     </button>
                 </div>
@@ -1414,7 +1506,7 @@ const PreviewApp = (() => {
         for (let i = 0; i < significanceLines.length; i++) {
             const isActive = i === step;
             const isDone = i < step;
-            barsHTML += `<div style="flex:1;height:6px;border-radius:4px;background:${isActive ? 'var(--accent-gradient-vibrant)' : isDone ? '#a855f7' : 'rgba(255,255,255,0.1)'};box-shadow:${isActive ? '0 0 10px rgba(168,85,247,0.8)' : 'none'};"></div>`;
+            barsHTML += `<div style="flex:1;height:6px;border-radius:4px;background:${isActive ? 'var(--accent-gradient-vibrant)' : isDone ? '#eaf0e9' : 'rgba(36, 48, 40, 0.1)'};box-shadow:none;"></div>`;
         }
 
         let historyHTML = '';
@@ -1423,10 +1515,10 @@ const PreviewApp = (() => {
             for (let i = 0; i < step; i++) {
                 const prev = significanceLines[i];
                 historyHTML += `
-                    <div style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.02);padding:12px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.05);text-align:left;">
+                    <div style="display:flex;gap:12px;align-items:center;background:rgba(36, 48, 40, 0.02);padding:12px 16px;border-radius:12px;border:1px solid rgba(36, 48, 40, 0.05);text-align:left;">
                         <span style="font-size:1.3rem;">${prev.icon}</span>
                         <span style="font-size:0.95rem;font-weight:700;color:var(--text-secondary);">${prev.title}</span>
-                        <span style="margin-left:auto;color:#a855f7;font-weight:800;font-size:0.85rem;">✓ Understood</span>
+                        <span style="margin-left:auto;color:#426451;font-weight:800;font-size:0.85rem;">✓ Understood</span>
                     </div>
                 `;
             }
@@ -1437,7 +1529,7 @@ const PreviewApp = (() => {
         container.appendChild(mascotArea);
         container.innerHTML += `
             <div class="study-page-wrap" style="max-width:700px;margin:0 auto;padding:16px 14px 60px;">
-                <div class="study-section-card" style="padding:36px 32px;background:#18181b;border:2px solid rgba(168,85,247,0.35);box-shadow:0 24px 64px rgba(0,0,0,0.65);">
+                <div class="study-section-card" style="padding:36px 32px;background:#ffffff;border:2px solid rgba(66, 100, 81, 0.16);box-shadow:none;">
                     
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                         <span style="font-size:0.85rem;font-weight:800;color:var(--accent-3);text-transform:uppercase;letter-spacing:0.08em;">Aptitude & Mathematics Mastery</span>
@@ -1449,10 +1541,10 @@ const PreviewApp = (() => {
 
                     ${historyHTML}
 
-                    <div style="background:rgba(168,85,247,0.14);padding:30px 26px;border-radius:18px;border:2px solid rgba(168,85,247,0.55);box-shadow:0 16px 48px rgba(168,85,247,0.2);text-align:left;animation:fadeIn 0.4s ease;">
+                    <div style="background:rgba(66, 100, 81, 0.14);padding:30px 26px;border-radius:18px;border:2px solid rgba(66, 100, 81, 0.16);box-shadow:none;text-align:left;animation:fadeIn 0.4s ease;">
                         <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-                            <span style="font-size:2.4rem;background:rgba(168,85,247,0.22);width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${currentLine.icon}</span>
-                            <span style="font-size:1.35rem;font-weight:900;color:#fff;line-height:1.3;">${currentLine.title}</span>
+                            <span style="font-size:2.4rem;background:rgba(66, 100, 81, 0.16);width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${currentLine.icon}</span>
+                            <span style="font-size:1.35rem;font-weight:900;color:#222e28;line-height:1.3;">${currentLine.title}</span>
                         </div>
                         <div style="font-size:1.08rem;color:var(--text-primary);line-height:1.75;font-weight:500;">
                             ${currentLine.body}
@@ -1481,7 +1573,7 @@ const PreviewApp = (() => {
                     btn.classList.add('enabled');
                     btn.style.opacity = '1';
                     btn.style.cursor = 'pointer';
-                    btn.style.boxShadow = '0 8px 28px rgba(168,85,247,0.5)';
+                    btn.style.boxShadow = 'none';
                     btn.textContent = step < significanceLines.length - 1 ? 'I Understood — Next Line →' : 'I Understood — Let\'s Start Studying! 🚀';
                 }
             }
@@ -1521,7 +1613,7 @@ const PreviewApp = (() => {
                     <div class="study-formula-box">
                         📌 <strong>Formula / Shortcut:</strong><br>${topic.formula}
                     </div>
-                    <div class="study-section-title" style="margin-top:24px;">💡 Solved Example</div>
+                    <div class="study-section-title" style="margin-top:24px;">Solved Example</div>
                     <div class="study-example-box">
                         ${topic.example}
                     </div>
@@ -1541,7 +1633,7 @@ const PreviewApp = (() => {
             }
             const btn = document.getElementById('study-complete-btn');
             btn.textContent = 'Explore More Concepts →';
-            btn.style.background = 'linear-gradient(135deg, #58cc02, #46a302)';
+            btn.style.background = '#edf1ea';
             btn.onclick = () => {
                 pickerPage = 0;
                 selectedPickerTopic = null;
@@ -1554,9 +1646,17 @@ const PreviewApp = (() => {
 
 
     async function checkPaywallAndStart(topicId, onSuccessCallback) {
-        const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
+        let currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
+        if (!currentUser && typeof AuthManager !== 'undefined') {
+            try {
+                currentUser = await AuthManager.getCurrentUser();
+            } catch (e) {
+                console.warn('[PreviewApp] Async user check:', e);
+            }
+        }
+
         if (!currentUser) {
-            alert("Please log in to start learning.");
+            AppUI.notify("Please log in to start learning.");
             if (typeof AuthManager !== 'undefined') {
                 AuthManager.openAuthModal(() => { if (typeof PreviewApp !== 'undefined') PreviewApp.open(); });
             }
@@ -1566,7 +1666,7 @@ const PreviewApp = (() => {
         let unlocked = currentUser.unlockedTopics || [];
         
         // If Full Access granted via CRM ('*' wildcard, 'all'), Admin, or already unlocked, proceed immediately
-        const hasFullAccess = unlocked.includes('*') || 
+        const hasFullAccess = currentUser.isPaidTier || unlocked.includes('*') || 
                              unlocked.includes('all') || 
                              currentUser.isAdmin || 
                              (typeof allAptitudeTopics !== 'undefined' && allAptitudeTopics.length > 0 && unlocked.length >= allAptitudeTopics.length);
@@ -1576,114 +1676,176 @@ const PreviewApp = (() => {
             return;
         }
 
-        // Check slots
+        // Check slots: smoothly unlock first 2 free topics
         if (unlocked.length < 2) {
-            if (confirm("Unlock this topic as one of your 2 free topics?")) {
-                unlocked.push(topicId);
+            if (!unlocked.includes(topicId)) {
+                unlocked = [...unlocked, topicId];
                 if (typeof AuthManager !== 'undefined') {
-                    await AuthManager.updateCurrentUser({ unlockedTopics: unlocked });
+                    try {
+                        await AuthManager.updateCurrentUser({ unlockedTopics: unlocked });
+                    } catch (error) { AppUI.notify(error.message); return; }
                 }
-                onSuccessCallback();
             }
+            onSuccessCallback();
         } else {
             showPaywall();
         }
     }
 
     function showPaywall() {
+        if (document.getElementById('placement-paywall')) return;
         const overlay = document.createElement('div');
+        overlay.id = 'placement-paywall';
+        overlay.className = 'app-dialog-overlay';
         overlay.style.position = 'fixed';
         overlay.style.inset = '0';
-        overlay.style.backgroundColor = 'rgba(0,0,0,0.85)';
+        overlay.style.backgroundColor = 'rgba(30, 40, 34, 0.30)';
         overlay.style.backdropFilter = 'blur(5px)';
         overlay.style.display = 'flex';
         overlay.style.justifyContent = 'center';
         overlay.style.alignItems = 'center';
         overlay.style.zIndex = '9999';
 
-        overlay.innerHTML = "\n            <div style=\"background:#14141E; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:32px; max-width:400px; text-align:center; color:white; font-family:sans-serif;\">\n                <h3 style=\"margin-bottom:16px; font-size:1.5rem; color:#8B5CF6;\">? Premium Access</h3>\n                <p style=\"margin-bottom:16px; font-size:1.1rem; line-height:1.5;\">You have reached your limit of <strong>2 free topics</strong>.</p>\n                <p style=\"color:#94A3B8; margin-bottom:24px; font-size:0.95rem; line-height:1.5;\">Upgrade to Premium to unlock all topics, view detailed analytics, and master your placements with LaquTum.</p>\n                <button id=\"paywall-upgrade-btn\" style=\"width:100%; padding:14px; background:#8B5CF6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem; margin-bottom:12px;\">Upgrade Now</button>\n                <button id=\"paywall-close-btn\" style=\"width:100%; padding:14px; background:transparent; color:#94A3B8; border:1px solid rgba(255,255,255,0.1); border-radius:8px; font-weight:bold; cursor:pointer; font-size:1rem;\">Maybe Later</button>\n            </div>\n        ";
-        
-        // Let's replace the quotes with backticks safely in JS side
-        overlay.innerHTML = overlay.innerHTML.replace(/'/g, "");
+        overlay.innerHTML = `
+            <div role="dialog" aria-modal="true" aria-label="Complete placement pass" class="placement-paywall-card" style="background:#ffffff; border:1.5px solid #426451; border-radius:20px; padding:32px; max-width:440px; text-align:center; color:#222e28; font-family:sans-serif; box-shadow:none;">
+                <div style="font-size:0.75rem; font-weight:800; color:#426451; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Complete Placement Pass</div>
+                <h3 style="margin:0 0 8px 0; font-size:1.7rem; font-weight:900; color:#222e28;">₹1,499 <span style="font-size:0.9rem; font-weight:500; color:#657169;">/ 6 Months Access</span></h3>
+                <p style="color:#222e28; margin-bottom:16px; font-size:0.88rem; line-height:1.5;">Start with two topics for free. Continue with the complete library and a structured study plan.</p>
+                <div style="text-align:left; background:#f2f4ef; border-radius:12px; padding:14px; margin-bottom:20px; font-size:0.82rem; color:#222e28; display:flex; flex-direction:column; gap:8px;">
+                    <div><strong>14-Day Structured Route</strong> (25-35 mins/day)</div>
+                    <div><strong>Unlabelled Independent Practice</strong> + 3-Step Hint Ladders</div>
+                    <div><strong>Mistake Notebook</strong> with Spaced Retries (Days 1, 3, 7)</div>
+                    <div><strong>2 Timed Checkpoint Simulators</strong> with tactical feedback</div>
+                    <div><strong>Bounded Support:</strong> 3 Written Doubt Reviews (48h SLA)</div>
+                </div>
+                <button id="paywall-upgrade-btn" style="width:100%; padding:14px; background:#edf1ea; color:#222e28; border:none; border-radius:12px; font-weight:800; cursor:pointer; font-size:1rem; margin-bottom:10px; box-shadow:none;">Get Complete Access — ₹1,499</button>
+                <button id="paywall-view-coverage-btn" style="width:100%; padding:10px; background:transparent; color:#426451; border:1px solid rgba(66, 100, 81, 0.16); border-radius:10px; font-weight:700; cursor:pointer; font-size:0.85rem; margin-bottom:10px;">View Exam Coverage Map</button>
+                <button id="paywall-close-btn" style="width:100%; padding:8px; background:transparent; color:#657169; border:none; cursor:pointer; font-size:0.82rem;">Maybe Later</button>
+            </div>
+        `;
 
         document.body.appendChild(overlay);
 
+        const coverageBtn = document.getElementById('paywall-view-coverage-btn');
+        if (coverageBtn) {
+            coverageBtn.onclick = () => {
+                overlay.remove();
+                currentDashboardTab = 'coverage';
+                renderPostResultsChoice();
+            };
+        }
+
         document.getElementById('paywall-upgrade-btn').onclick = async () => {
             const btn = document.getElementById('paywall-upgrade-btn');
+            const restore = () => { btn.textContent = 'Upgrade Now'; btn.disabled = false; };
             btn.textContent = 'Loading Secure Checkout...';
             btn.disabled = true;
-
-            // Load Razorpay Script dynamically
-            if (typeof window.Razorpay === 'undefined') {
-                await new Promise((resolve) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-                    script.onload = resolve;
-                    document.body.appendChild(script);
-                });
-            }
-
-            const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : {};
-            
-            var options = {
-                "key": "rzp_live_TbyTRoh7PHZNPf", // Razorpay LIVE API Key
-                "amount": "9900", // Amount is in paise (9900 = 99 INR)
-                "currency": "INR",
-                "name": "LaquTum Premium",
-                "description": "Unlock All Topics & Premium Features",
-                "handler": async function (response) {
-                    // Payment Successful!
-                    overlay.innerHTML = "<div style=\"background:#14141E; border-radius:16px; padding:32px; text-align:center; color:white;\"><h3 style=\"color:#10B981; margin-bottom:10px;\">? Payment Successful!</h3><p>Unlocking your premium access...</p></div>";
-                    
-                    // Unlock all topics instantly in the database
-                    const allTopicIds = typeof allAptitudeTopics !== 'undefined' ? allAptitudeTopics.map(t => t.id) : [];
-                    if (allTopicIds.length > 0 && typeof AuthManager !== 'undefined') {
-                        await AuthManager.updateCurrentUser({ unlockedTopics: allTopicIds });
-                    }
-                    
-                    alert("Welcome to LaquTum Premium! All topics are now permanently unlocked for your account.");
-                    overlay.remove();
-                    
-                    // Refresh the current view to show unlocked topics
-                    if (state === 'PICKER') {
-                        renderTopicPickerPage();
-                    } else {
-                        renderPostResultsChoice();
-                    }
-                },
-                "prefill": {
-                    "name": currentUser.name || "",
-                    "email": currentUser.email || ""
-                },
-                "theme": {
-                    "color": "#8B5CF6"
+            try {
+                if (typeof window.Razorpay === 'undefined') {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        const timeout = setTimeout(() => { script.remove(); reject(new Error('Checkout timed out. Please try again.')); }, 15000);
+                        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                        script.onload = () => { clearTimeout(timeout); resolve(); };
+                        script.onerror = () => { clearTimeout(timeout); script.remove(); reject(new Error('Unable to load checkout. Please try again.')); };
+                        document.body.appendChild(script);
+                    });
                 }
-            };
-            
-            var rzp = new window.Razorpay(options);
-            rzp.on('payment.failed', function (response){
-                alert("Payment Failed: " + response.error.description);
-                btn.textContent = 'Upgrade Now';
-                btn.disabled = false;
-            });
-            rzp.open();
+                const pending = UserStorage.read('laqtum_pending_payment', null);
+                if (pending) {
+                    await SecureAPI.call('payments', { action: 'verify', ...pending });
+                    UserStorage.write('laqtum_pending_payment', null);
+                    await AuthManager.getCurrentUser();
+                    overlay.remove();
+                    renderPostResultsChoice();
+                    return;
+                }
+                const order = await SecureAPI.call('payments', { action: 'create' });
+                const currentUser = AuthManager.getCurrentUserSync() || {};
+                const rzp = new window.Razorpay({
+                    key: order.key, order_id: order.orderId, amount: order.amount, currency: order.currency,
+                    name: 'LaquTum', description: 'Complete 14-Day Placement Pass (6 Months Access)',
+                    prefill: { name: currentUser.name || '', email: currentUser.email || '' },
+                    theme: { color: '#8B5CF6' }, modal: { ondismiss: restore },
+                    handler: async response => {
+                        UserStorage.write('laqtum_pending_payment', response);
+                        try {
+                            btn.textContent = 'Verifying payment...';
+                            await SecureAPI.call('payments', { action: 'verify', ...response });
+                            UserStorage.write('laqtum_pending_payment', null);
+                            await AuthManager.getCurrentUser();
+                            AppUI.notify('Welcome to LaquTum! Your six-month placement pass is active.');
+                            overlay.remove();
+                            if (state === 'PICKER') renderTopicPickerPage();
+                            else renderPostResultsChoice();
+                        } catch (error) {
+                            AppUI.notify('Your payment could not yet be verified. Please keep your payment ID: ' + response.razorpay_payment_id + '. Retry verification before making another payment.');
+                            btn.textContent = 'Retry Verification';
+                            btn.disabled = false;
+                            btn.onclick = async () => {
+                                btn.disabled = true;
+                                try {
+                                    await SecureAPI.call('payments', { action: 'verify', ...response });
+                                    UserStorage.write('laqtum_pending_payment', null);
+                                    await AuthManager.getCurrentUser();
+                                    overlay.remove();
+                                    renderPostResultsChoice();
+                                } catch (error) { AppUI.notify(error.message); btn.disabled = false; }
+                            };
+                        }
+                    }
+                });
+                rzp.on('payment.failed', response => { AppUI.notify('Payment failed: ' + response.error.description); restore(); });
+                rzp.open();
+            } catch (error) { AppUI.notify(error.message); restore(); }
         };
 
         document.getElementById('paywall-close-btn').onclick = () => overlay.remove();
+        AppUI.attachModal(overlay, overlay.querySelector('[role=dialog]'));
     }
 
     // ---------- Pattern Teaching Flow (Six-Step Unit) ----------
-    function startPatternFlow(pattern, costumes) {
+    async function startPatternFlow(pattern, costumes) {
         currentPatternFlow = pattern;
-        const reentryStep = engineReady ? ConfidenceTracker.getReentryStep(pattern) : 1;
+
+        // Ensure engine is fully initialized before querying
+        await ensureEngineReady();
+
+        const reentryStep = (engineReady && typeof ConfidenceTracker !== 'undefined')
+            ? ConfidenceTracker.getReentryStep(pattern)
+            : 1;
 
         // Get questions filtered by costume (topic-specific) or by pattern (fallback)
-        let allQuestions;
+        let allQuestions = [];
         if (costumes && costumes.length > 0 && engineReady) {
-            allQuestions = ContentBank.getQuestionsByCostumes(costumes);
-        } else {
-            allQuestions = engineReady ? ContentBank.getQuestions(pattern) : [];
+            try {
+                allQuestions = ContentBank.getQuestionsByCostumes(costumes);
+            } catch (e) {
+                console.warn('[PreviewApp] getQuestionsByCostumes error:', e);
+            }
         }
+
+        // Fallback to pattern questions if costume query returned 0
+        if ((!allQuestions || allQuestions.length === 0) && engineReady && pattern) {
+            try {
+                allQuestions = ContentBank.getQuestions(pattern);
+            } catch (e) {
+                console.warn('[PreviewApp] getQuestions error:', e);
+            }
+        }
+
+        // Fallback to topic study page if still empty, so "Content Coming Soon" is NEVER shown for valid topics
+        if (!allQuestions || allQuestions.length === 0) {
+            console.warn(`[PreviewApp] No questions found for pattern ${pattern}, falling back to study page`);
+            if (selectedPickerTopic) {
+                renderTopicStudyPage(selectedPickerTopic);
+                return;
+            } else {
+                renderNoContentScreen(pattern);
+                return;
+            }
+        }
+
         currentFlowEntries = allQuestions.sort((a, b) => {
             if (a.step !== b.step) return a.step - b.step;
             return (a.difficulty || 1) - (b.difficulty || 1);
@@ -1714,17 +1876,25 @@ const PreviewApp = (() => {
         }
 
         if (currentFlowEntries.length === 0) {
-            renderNoContentScreen(pattern);
+            if (selectedPickerTopic) {
+                renderTopicStudyPage(selectedPickerTopic);
+            } else {
+                renderNoContentScreen(pattern);
+            }
             return;
         }
 
         // Check if there's an explanation to show first
         const firstEntry = currentFlowEntries[currentFlowIndex];
-        if (firstEntry.explanation_id && engineReady) {
-            const explanation = ContentBank.getById(firstEntry.explanation_id);
-            if (explanation && explanation.type === 'explanation') {
-                renderExplanation(explanation, firstEntry);
-                return;
+        if (firstEntry && firstEntry.explanation_id && engineReady) {
+            try {
+                const explanation = ContentBank.getById(firstEntry.explanation_id);
+                if (explanation && explanation.type === 'explanation') {
+                    renderExplanation(explanation, firstEntry);
+                    return;
+                }
+            } catch (e) {
+                console.warn('[PreviewApp] Explanation fetch error:', e);
             }
         }
 
@@ -1744,7 +1914,7 @@ const PreviewApp = (() => {
             <div class="study-page-wrap">
                 <div class="study-section-card" style="text-align:center;padding:34px;">
                     <div style="font-size:3rem;margin-bottom:16px;">🚧</div>
-                    <div style="font-size:1.2rem;font-weight:700;color:#fff;margin-bottom:12px;">Content Coming Soon</div>
+                    <div style="font-size:1.2rem;font-weight:700;color:#222e28;margin-bottom:12px;">Content Coming Soon</div>
                     <div style="color:var(--text-secondary);margin-bottom:24px;">We're building the teaching content for ${name}. It will be available in the next update!</div>
                     <button class="results-cta" id="back-from-empty">← Choose Another Pattern</button>
                 </div>
@@ -1764,22 +1934,20 @@ const PreviewApp = (() => {
         const icon = PATTERN_ICONS[explanation.pattern] || '📌';
 
         const mascotArea = document.createElement('div');
-        setMascot(mascotArea, 'normal', `Let me teach you the ${patternName} pattern! Pay attention to this explanation. 📖`);
+        setMascot(mascotArea, 'normal', 'Read this short idea. Take your time — there is no need to memorise it yet.');
 
         container.innerHTML = '';
         container.appendChild(mascotArea);
         container.innerHTML += `
             <div class="lesson-card">
-                <span class="lesson-step-tag">${icon} ${patternName} — Explanation</span>
-                <h3 class="lesson-title">${explanation.knot_id ? 'Knot: ' + (explanation.knot_id || '').replace(/-/g, ' ') : 'Core Concept'}</h3>
-                <div class="lesson-body" style="white-space:pre-wrap;line-height:1.8;">${explanation.content}</div>
-                <div style="margin-top:20px;font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">How well did you understand?</div>
+                <span class="lesson-step-tag">LEARN THE IDEA</span>
+                <h3 class="lesson-title">${selectedPickerTopic ? selectedPickerTopic.label : 'The main idea'}</h3>
+                <div class="lesson-body" style="white-space:pre-wrap;line-height:1.8;">${AppUI.formatText(explanation.content)}</div>
+                <div class="understanding-question">What would help you now?</div>
                 <div style="display:flex;flex-direction:column;gap:8px;" id="explanation-checkpoint">
-                    <button class="comp-btn" data-comp="understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(88,204,2,0.3);background:rgba(88,204,2,0.08);color:#58cc02;font-weight:600;font-size:0.88rem;cursor:pointer;">✅ Fully understood — show me a question</button>
-                    <button class="comp-btn" data-comp="slightly_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:#fbbf24;font-weight:600;font-size:0.88rem;cursor:pointer;">🤔 Got the gist, want to see more</button>
-                    <button class="comp-btn" data-comp="some_doubts" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.08);color:#3b82f6;font-weight:600;font-size:0.88rem;cursor:pointer;">❓ Mostly clear, one point unclear</button>
-                    <button class="comp-btn" data-comp="cant_apply_but_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;font-weight:600;font-size:0.88rem;cursor:pointer;">🔧 Makes sense but can't apply it</button>
-                    <button class="comp-btn" data-comp="nothing_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444;font-weight:600;font-size:0.88rem;cursor:pointer;">😵 Didn't understand at all</button>
+                    <button class="comp-btn" data-comp="understood">I understand — give me a question</button>
+                    <button class="comp-btn" data-comp="slightly_understood">Show me another example</button>
+                    <button class="comp-btn" data-comp="nothing_understood">Explain it more simply</button>
                 </div>
             </div>
         `;
@@ -1827,15 +1995,15 @@ const PreviewApp = (() => {
         const container = document.getElementById('lesson-content');
 
         const mascotArea = document.createElement('div');
-        setMascot(mascotArea, 'normal', `Let me clarify that specific point for you! 💡`);
+        setMascot(mascotArea, 'normal', 'Here is the same idea in simpler words. Read it once, then go back when you are ready.');
 
         container.innerHTML = '';
         container.appendChild(mascotArea);
         container.innerHTML += `
             <div class="lesson-card">
-                <span class="lesson-step-tag">💡 Clarification</span>
+                <span class="lesson-step-tag">Clarification</span>
                 <h3 class="lesson-title">${clarification.addresses || 'Quick Clarification'}</h3>
-                <div class="lesson-body" style="white-space:pre-wrap;line-height:1.8;">${clarification.content}</div>
+                <div class="lesson-body" style="white-space:pre-wrap;line-height:1.8;">${AppUI.formatText(clarification.content)}</div>
                 <button class="lesson-next-btn" id="clarification-back">Got it — go back ✓</button>
             </div>
         `;
@@ -1869,10 +2037,10 @@ const PreviewApp = (() => {
             container.appendChild(mascotArea);
             container.innerHTML += `
                 <div class="lesson-card">
-                    <span class="lesson-step-tag">🔧 Guided Walkthrough — Step ${currentWTStep + 1} of ${walkthrough.steps.length}</span>
+                    <span class="lesson-step-tag">Guided Walkthrough — Step ${currentWTStep + 1} of ${walkthrough.steps.length}</span>
                     <h3 class="lesson-title">${step.prompt}</h3>
                     <div class="lesson-body" style="display:none;white-space:pre-wrap;line-height:1.8;" id="wt-reveal">${step.reveal}</div>
-                    <button class="lesson-next-btn" id="wt-show-reveal" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);color:#a855f7;">🔍 Reveal the answer</button>
+                    <button class="lesson-next-btn" id="wt-show-reveal" style="background:rgba(66, 100, 81, 0.15);border:1px solid rgba(66, 100, 81, 0.16);color:#426451;">🔍 Reveal the answer</button>
                     <button class="lesson-next-btn" id="wt-next" style="display:none;">Continue →</button>
                 </div>
             `;
@@ -1938,28 +2106,32 @@ const PreviewApp = (() => {
         const entry = currentFlowEntries[index];
 
         showScreen('screen-quiz');
-        setProgress(90 + (index / currentFlowEntries.length) * 10);
+        setProgress((index / currentFlowEntries.length) * 100);
 
         const container = document.getElementById('quiz-content');
         const patternName = PATTERN_NAMES[entry.pattern] || entry.pattern;
         const icon = PATTERN_ICONS[entry.pattern] || '🧩';
         const topicLabel = (entry.topic_costume || '').replace(/-/g, ' ');
-        const stepLabel = entry.step ? `Step ${entry.step}` : '';
-        const knotLabel = entry.knot_name ? ` — ${entry.knot_name}` : '';
+        const difficulty = Number(entry.difficulty || 1);
+        const difficultyLabel = difficulty <= 2 ? 'Easy' : difficulty === 3 ? 'Medium' : 'Challenging';
 
         const mascotArea = document.createElement('div');
-        setMascot(mascotArea, 'thinking', entry.question);
+        setMascot(mascotArea, 'thinking', 'This is a solved example. Read the question, then follow the answer and the quick method.');
 
         const progressTag = document.createElement('div');
-        progressTag.style.cssText = 'text-align:center;font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;';
-        progressTag.textContent = `${icon} ${patternName} • ${stepLabel}${knotLabel} • Q${index + 1} of ${currentFlowEntries.length}`;
+        progressTag.className = 'lesson-stage-label';
+        progressTag.textContent = `Example ${index + 1} of ${currentFlowEntries.length} · Solved example`;
 
         const tag = document.createElement('div');
         tag.style.cssText = 'text-align:center;margin-bottom:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
         tag.innerHTML = `
-            <span style="padding:4px 14px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:999px;font-size:0.72rem;font-weight:700;color:var(--accent-3);text-transform:uppercase;">${topicLabel}</span>
-            <span style="padding:4px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:999px;font-size:0.72rem;font-weight:700;color:#3b82f6;">Difficulty ${entry.difficulty || '?'}/5</span>
+            <span style="padding:4px 14px;background:rgba(66, 100, 81, 0.1);border:1px solid rgba(66, 100, 81, 0.16);border-radius:999px;font-size:0.72rem;font-weight:700;color:var(--accent-3);">${selectedPickerTopic ? selectedPickerTopic.label : topicLabel}</span>
+            <span style="padding:4px 14px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:999px;font-size:0.72rem;font-weight:700;color:#385f75;">${difficultyLabel}</span>
         `;
+
+        const questionHeading = document.createElement('h2');
+        questionHeading.className = 'worked-example-question';
+        questionHeading.textContent = entry.question;
 
         const optList = document.createElement('div');
         optList.className = 'option-list';
@@ -1968,60 +2140,73 @@ const PreviewApp = (() => {
             btn.className = 'option-card';
             if (i === entry.correct_index) btn.classList.add('correct');
             btn.style.pointerEvents = 'none';
-            btn.innerHTML = `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;color:var(--text-muted);">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+            btn.innerHTML = `<span style="width:28px;height:28px;border-radius:50%;border:2px solid rgba(36, 48, 40, 0.12);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;color:var(--text-muted);">${String.fromCharCode(65+i)}</span><span>${opt}</span>${i === entry.correct_index ? '<small class="answer-result-label">Correct answer</small>' : ''}`;
             optList.appendChild(btn);
         });
 
         // Built-in Explanation Block
         const explBlock = document.createElement('div');
         explBlock.className = 'worked-example-expl';
-        explBlock.style.cssText = 'margin-top: 24px; padding: 20px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; font-size: 0.95rem; line-height: 1.6;';
+        explBlock.style.cssText = 'margin-top: 24px; padding: 20px; background: #f7f9f4; border: 1px solid #dfe5d8; border-radius: 8px; font-size: 0.95rem; line-height: 1.7;';
         
         let explHTML = '';
         if (entry.knot_name || entry.pattern) {
-            explHTML += `<div style="font-weight:800; font-size: 1.1rem; color: var(--text-primary); margin-bottom: 12px; display:flex; align-items:center; gap:8px;"><span>${icon}</span> Knot/Pattern: ${entry.knot_name || patternName}</div>`;
+            explHTML += `<div style="font-weight:700; font-size: 1rem; color:var(--text-primary); margin-bottom: 12px;">Key idea: ${AppUI.formatText(entry.knot_name || patternName)}</div>`;
         }
-        if (entry.trick) explHTML += `<div style="margin-bottom: 12px;"><strong>Trick:</strong> ${entry.trick}</div>`;
-        if (entry.why) explHTML += `<div style="margin-bottom: 12px;"><strong>Why:</strong> ${entry.why}</div>`;
-        if (entry.why_others_wrong) explHTML += `<div style="margin-bottom: 12px;"><strong>Why others are wrong:</strong> ${entry.why_others_wrong}</div>`;
-        if (entry.trap_type && entry.trap_explanation) explHTML += `<div style="margin-top: 16px; padding: 12px; background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; border-radius: 4px;"><strong>🚨 Trap (${entry.trap_type}):</strong> ${entry.trap_explanation}</div>`;
+        if (entry.trick) explHTML += `<div style="margin-bottom: 12px;"><strong>Quick method:</strong> ${AppUI.formatText(entry.trick)}</div>`;
+        if (entry.why) explHTML += `<div style="margin-bottom: 12px;"><strong>Why it works:</strong> ${AppUI.formatText(entry.why)}</div>`;
+        if (entry.why_others_wrong) explHTML += `<div style="margin-bottom: 12px;"><strong>Why the other answers do not work:</strong> ${AppUI.formatText(entry.why_others_wrong)}</div>`;
+        if (entry.trap_type && entry.trap_explanation) explHTML += `<div style="margin-top: 16px; padding: 12px; background:rgba(239, 68, 68, 0.08); border:1px solid #c98688; border-radius: 4px;"><strong>Common mistake:</strong> ${AppUI.formatText(entry.trap_explanation)}</div>`;
         explBlock.innerHTML = explHTML;
 
-        // Checkpoint Buttons
+        // A short instruction keeps one obvious next action on the screen.
         const checkpointDiv = document.createElement('div');
-        checkpointDiv.style.marginTop = '24px';
-        const checkpoint = entry.post_answer_checkpoint;
-        
-        if (checkpoint) {
-            checkpointDiv.innerHTML = `
-                <div style="margin-top:16px;font-size:0.85rem;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;text-align:center;">How well did you understand?</div>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                    <button class="comp-btn" data-comp="understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(88,204,2,0.3);background:rgba(88,204,2,0.08);color:#58cc02;font-weight:600;font-size:0.88rem;cursor:pointer;">✅ Fully understood — move on</button>
-                    <button class="comp-btn" data-comp="slightly_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(251,191,36,0.3);background:rgba(251,191,36,0.08);color:#fbbf24;font-weight:600;font-size:0.88rem;cursor:pointer;">🤔 Got the gist, want to see more</button>
-                    <button class="comp-btn" data-comp="some_doubts" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(59,130,246,0.3);background:rgba(59,130,246,0.08);color:#3b82f6;font-weight:600;font-size:0.88rem;cursor:pointer;">❓ Mostly clear, one point unclear</button>
-                    <button class="comp-btn" data-comp="cant_apply_but_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);color:#a855f7;font-weight:600;font-size:0.88rem;cursor:pointer;">🔧 Makes sense but can't apply it</button>
-                    <button class="comp-btn" data-comp="nothing_understood" style="padding:12px 16px;border-radius:12px;border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.08);color:#ef4444;font-weight:600;font-size:0.88rem;cursor:pointer;">😵 Didn't understand at all</button>
+        checkpointDiv.className = 'worked-example-next-note';
+        checkpointDiv.textContent = 'Next, try a new question. You can ask for a hint at any time.';
+
+        // Independent Practice Action Box
+        const practiceBox = document.createElement('div');
+        practiceBox.innerHTML = `
+            <div class="worked-example-action">
+                <div class="worked-example-action-title">
+                    TRY IT YOURSELF
                 </div>
-            `;
-            checkpointDiv.querySelectorAll('.comp-btn').forEach(cbtn => {
-                cbtn.addEventListener('click', () => {
-                    handleComprehensionRoute(entry, cbtn.dataset.comp, true);
-                });
-            });
-        } else {
-            checkpointDiv.innerHTML = `<button style="width:100%; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, #58cc02, #46a302); color: white; font-weight: 800; font-size: 1rem; border: none; cursor: pointer; box-shadow: 0 4px 0 #46a302;">CONTINUE</button>`;
-            checkpointDiv.querySelector('button').addEventListener('click', () => {
-                advanceFlow();
-            });
-        }
+                <div class="worked-example-action-copy">
+                    Choose an answer. If you get stuck, use a hint.
+                </div>
+                <button type="button" id="btn-practice-independently" class="home-start-btn">
+                    Try a question
+                </button>
+            </div>
+        `;
 
         container.innerHTML = '';
         container.appendChild(progressTag);
         container.appendChild(mascotArea);
         container.appendChild(tag);
+        container.appendChild(questionHeading);
         container.appendChild(optList);
         container.appendChild(explBlock);
         container.appendChild(checkpointDiv);
+        container.appendChild(practiceBox);
+
+        const practiceBtn = container.querySelector('#btn-practice-independently');
+        if (practiceBtn) {
+            practiceBtn.addEventListener('click', () => {
+                if (typeof PracticeEngine !== 'undefined') {
+                    const normaliseQuestion = q => String(q.question || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                    const mapping = selectedPickerTopic && TOPIC_MAPPING[selectedPickerTopic.id];
+                    const topicQuestions = engineReady && mapping
+                        ? ContentBank.getQuestionsByCostumes(mapping.costumes || [])
+                        : [];
+                    const freshEntry = [...currentFlowEntries.slice(index + 1), ...topicQuestions].find(q => normaliseQuestion(q) !== normaliseQuestion(entry));
+                    const practiceEntry = freshEntry || entry;
+                    PracticeEngine.renderIndependentQuestion(container, practiceEntry, () => {
+                        advanceFlow();
+                    });
+                }
+            });
+        }
 
         $('.preview-action-bar').classList.add('hidden');
     }
@@ -2071,49 +2256,67 @@ const PreviewApp = (() => {
     }
 
     function advanceFlow() {
-        currentFlowIndex++;
+        try {
+            currentFlowIndex++;
 
-        // Persist topic progress to user profile
-        const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
-        if (currentUser && selectedPickerTopic) {
-            const topicId = selectedPickerTopic.id;
-            currentUser.topicProgress = currentUser.topicProgress || {};
-            const isCompleted = currentFlowIndex >= currentFlowEntries.length;
-            currentUser.topicProgress[topicId] = {
-                flowIndex: currentFlowIndex,
-                completed: isCompleted,
-                lastUpdated: Date.now()
-            };
-            AuthManager.updateCurrentUser({
-                topicProgress: currentUser.topicProgress,
-                xp: xp,
-                streak: streak,
-                hearts: hearts,
-                confidenceStates: typeof engineReady !== 'undefined' && engineReady ? ConfidenceTracker.getAllStates() : {}
-            });
-        }
-
-        if (currentFlowIndex >= currentFlowEntries.length) {
-            renderPatternComplete();
-            return;
-        }
-
-        const nextEntry = currentFlowEntries[currentFlowIndex];
-
-        // Check if next entry needs an explanation first (based on confidence)
-        if (nextEntry.explanation_id && engineReady) {
-            const score = ConfidenceTracker.getScore(nextEntry.pattern);
-            // Show explanation if score is low or this is a new knot
-            if (score < 0.5 || (nextEntry.knot_id && nextEntry.step === 3)) {
-                const explanation = ContentBank.getById(nextEntry.explanation_id);
-                if (explanation && explanation.type === 'explanation') {
-                    renderExplanation(explanation, nextEntry);
-                    return;
+            // Persist topic progress to user profile
+            const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
+            if (currentUser && selectedPickerTopic) {
+                const topicId = selectedPickerTopic.id;
+                currentUser.topicProgress = currentUser.topicProgress || {};
+                const totalEntries = (currentFlowEntries && currentFlowEntries.length) ? currentFlowEntries.length : 0;
+                const isCompleted = currentFlowIndex >= totalEntries;
+                currentUser.topicProgress[topicId] = {
+                    flowIndex: currentFlowIndex,
+                    completed: isCompleted,
+                    lastUpdated: Date.now()
+                };
+                try {
+                    AuthManager.updateCurrentUser({
+                        topicProgress: currentUser.topicProgress,
+                        xp: xp,
+                        streak: streak,
+                        hearts: hearts,
+                        confidenceStates: typeof engineReady !== 'undefined' && engineReady && typeof ConfidenceTracker !== 'undefined' ? ConfidenceTracker.getAllStates() : {}
+                    });
+                } catch (syncErr) {
+                    console.warn('[PreviewApp] User progress update error:', syncErr);
                 }
             }
-        }
 
-        renderPatternQuestion(currentFlowIndex);
+            if (!currentFlowEntries || currentFlowEntries.length === 0 || currentFlowIndex >= currentFlowEntries.length) {
+                renderPatternComplete();
+                return;
+            }
+
+            const nextEntry = currentFlowEntries[currentFlowIndex];
+            if (!nextEntry) {
+                renderPatternComplete();
+                return;
+            }
+
+            // Check if next entry introduces a new knot that needs an explanation first
+            if (nextEntry.explanation_id && engineReady) {
+                const prevEntry = currentFlowEntries[currentFlowIndex - 1];
+                const isNewKnot = !prevEntry || (nextEntry.knot_id && nextEntry.knot_id !== prevEntry.knot_id);
+                if (isNewKnot && nextEntry.step === 3) {
+                    try {
+                        const explanation = ContentBank.getById(nextEntry.explanation_id);
+                        if (explanation && explanation.type === 'explanation') {
+                            renderExplanation(explanation, nextEntry);
+                            return;
+                        }
+                    } catch (expErr) {
+                        console.warn('[PreviewApp] Explanation fetch error:', expErr);
+                    }
+                }
+            }
+
+            renderPatternQuestion(currentFlowIndex);
+        } catch (err) {
+            console.error('[PreviewApp] advanceFlow error:', err);
+            renderPostResultsChoice();
+        }
     }
 
     function renderPatternComplete() {
@@ -2124,44 +2327,34 @@ const PreviewApp = (() => {
         updateStats();
 
         const pattern = currentPatternFlow;
-        const name = PATTERN_NAMES[pattern] || pattern;
-        const icon = PATTERN_ICONS[pattern] || '📌';
-        const level = engineReady ? ConfidenceTracker.getLevel(pattern) : 'EMERGING';
-        const score = engineReady ? Math.round(ConfidenceTracker.getScore(pattern) * 100) : 0;
+        const name = selectedPickerTopic ? selectedPickerTopic.label : (PATTERN_NAMES[pattern] || pattern);
 
         const container = document.getElementById('lesson-content');
         const mascotArea = document.createElement('div');
-        setMascot(mascotArea, 'happy', `Pattern complete! You earned 25 XP mastering ${name}! 🏆`);
-
-        // Build close-out message (Step 6 of the Six-Step Unit)
-        const knots = engineReady ? ContentBank.getQuestions(pattern).filter(q => q.knot_id).map(q => q.knot_name).filter((v, i, a) => v && a.indexOf(v) === i) : [];
-        const knotList = knots.length > 0 ? knots.map(k => `• ${k}`).join('<br>') : 'No specific traps covered yet.';
+        setMascot(mascotArea, 'happy', 'You finished the lesson. You can choose another topic now or come back later.');
 
         container.innerHTML = '';
         container.appendChild(mascotArea);
         container.innerHTML += `
             <div class="results-card">
-                <div class="results-title" style="color:#ffc800;">🎉 ${icon} ${name} Complete!</div>
-                <div class="results-subtitle">You now recognize this pattern and its traps</div>
-                <div style="font-size:3rem;margin:24px 0;">⭐⭐⭐</div>
-                <div style="margin-bottom:16px;">
-                    <span style="font-size:2rem;font-weight:900;color:#ffc800;">+25 XP</span>
+                <div class="results-title">Lesson complete</div>
+                <div class="results-subtitle">You worked through ${name} step by step.</div>
+                <div class="lesson-complete-note">
+                    Progress saved · 25 XP added
                 </div>
-                <div style="text-align:left;background:rgba(255,255,255,0.04);padding:16px;border-radius:12px;margin-bottom:20px;">
-                    <div style="font-size:0.85rem;font-weight:700;color:var(--accent-3);margin-bottom:8px;">Current Level: ${level.replace(/_/g, ' ')} (${score}%)</div>
-                    <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.6;">
-                        <strong>Traps covered:</strong><br>${knotList}
-                    </div>
-                </div>
-                <button class="results-cta" id="back-to-patterns">Choose Another Pattern →</button>
+                <button class="results-cta" id="back-to-patterns">Choose another topic</button>
             </div>
         `;
 
         showXPPopup('+25 XP');
 
-        document.getElementById('back-to-patterns').addEventListener('click', () => {
-            renderPostResultsChoice();
-        });
+        const backBtn = document.getElementById('back-to-patterns');
+        if (backBtn) {
+            backBtn.onclick = (e) => {
+                e.preventDefault();
+                renderPostResultsChoice();
+            };
+        }
     }
 
     // ---------- Check Button ----------
@@ -2169,6 +2362,8 @@ const PreviewApp = (() => {
         const btn = $('.preview-check-btn');
         if (!btn) return;
         btn.classList.toggle('enabled', enabled);
+        btn.disabled = !enabled;
+        btn.setAttribute('aria-disabled', String(!enabled));
         btn.textContent = enabled ? 'Check' : 'Select an answer';
     }
 
@@ -2180,6 +2375,9 @@ const PreviewApp = (() => {
 
     // ---------- Public Init ----------
     async function open() {
+        // Pre-warm engine immediately regardless of user state
+        ensureEngineReady();
+
         const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
         if (!currentUser) {
             if (typeof AuthManager !== 'undefined') {
@@ -2193,18 +2391,8 @@ const PreviewApp = (() => {
             overlay.classList.add('active');
             document.body.style.overflow = 'hidden';
 
-            // Load engine if not already loaded
-            if (!engineReady) {
-                try {
-                    await ContentBank.init(typeof CONTENT_BANK_URL !== 'undefined' ? CONTENT_BANK_URL : 'content-bank.json');
-                    ConfidenceTracker.init();
-                    engineReady = true;
-                    console.log('[PreviewApp] Engine loaded successfully');
-                } catch (e) {
-                    console.error('[PreviewApp] Engine failed to load, using fallback:', e);
-                    engineReady = false;
-                }
-            }
+            // Ensure engine is loaded and verified
+            await ensureEngineReady();
 
             // Sync user stats from AuthManager
             xp = currentUser.xp || 0;
@@ -2237,6 +2425,9 @@ const PreviewApp = (() => {
     }
 
     function init() {
+        // Pre-warm engine eagerly on DOM/app startup
+        ensureEngineReady();
+
         // Check button
         const checkBtn = $('.preview-check-btn');
         if (checkBtn) checkBtn.addEventListener('click', handleCheck);
@@ -2258,10 +2449,11 @@ const PreviewApp = (() => {
             } else if (state === 'RESULTS') {
                 renderGenuineCheckScreen();
             } else if (state === 'CHOICE') {
-                if (typeof AuthManager !== 'undefined') {
-                    AuthManager.logOut();
+                if (currentDashboardTab !== 'patterns') {
+                    currentDashboardTab = 'patterns';
+                    renderPostResultsChoice();
                 } else {
-                    close();
+                    renderPostResultsChoice();
                 }
             } else if (state === 'ASK') {
                 renderPostResultsChoice();
@@ -2277,7 +2469,7 @@ const PreviewApp = (() => {
             } else if (state === 'STUDY' || state === 'LESSON') {
                 renderPostResultsChoice();
             } else {
-                close();
+                renderPostResultsChoice();
             }
         });
 
@@ -2287,11 +2479,25 @@ const PreviewApp = (() => {
             profileBtn.addEventListener('click', () => {
                 const currentUser = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
                 if (currentUser) {
-                    alert(`👤 Profile: ${currentUser.name}\n📧 Email: ${currentUser.email}\n⚡ XP: ${currentUser.xp || 0}\n🔥 Streak: ${currentUser.streak || 1}\n✅ Diagnostic: ${currentUser.hasCompletedDiagnostic ? 'Completed' : 'Pending'}`);
+                    AppUI.dialog('Your account', [currentUser.name, currentUser.email, `${currentUser.xp || 0} XP earned · ${currentUser.streak || 1} day streak`, `Diagnostic: ${currentUser.hasCompletedDiagnostic ? 'Completed' : 'Ready when you are'}`].filter(Boolean).join('\n'), [
+                        { label: 'Sign out', secondary: true, onClick: () => AuthManager.logOut() }
+                    ]);
                 }
             });
         }
     }
 
-    return { open, close, init, showScreen, wireAppBottomNav, renderPostResultsChoice, checkPaywallAndStart };
+    return { 
+        open, 
+        close, 
+        init, 
+        showScreen, 
+        wireAppBottomNav, 
+        renderPostResultsChoice, 
+        checkPaywallAndStart,
+        showPaywall,
+        advanceFlow,
+        renderPatternQuestion,
+        startPatternFlow
+    };
 })();

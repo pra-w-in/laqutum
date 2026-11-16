@@ -169,8 +169,9 @@
     <h2>📝 Event Log</h2>
     <div id="log"></div>
 
-    <script src="engine/content-loader.js"></script>
-    <script src="engine/confidence-tracker.js"></script>
+    <script>const CONTENT_BANK_URL = "../content-bank.json";</script>
+    <script src="content-loader.js"></script>
+    <script src="confidence-tracker.js"></script>
     <script>
         const ALL_PATTERNS = ['P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11','P12'];
         let lastPattern = null;
@@ -180,7 +181,7 @@
 
             try {
                 // Init content bank
-                await ContentBank.init('www/content-bank.json');
+                await ContentBank.init('../content-bank.json');
                 // Init confidence tracker
                 ConfidenceTracker.init();
 

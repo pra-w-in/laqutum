@@ -1,0 +1,6 @@
+[functions.ai-mentor]
+verify_jwt = false
+
+[functions.payments]
+verify_jwt = false
+# Both handlers validate the bearer token against Supabase Auth themselves.

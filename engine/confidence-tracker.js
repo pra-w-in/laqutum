@@ -92,6 +92,7 @@ const ConfidenceTracker = (function () {
     // ─── Private state ───────────────────────────────────────────
 
     let _state = null;
+    let _owner = null;
     let _contradictionFlags = {}; // pattern → count of remaining "distrust self-report" updates
 
     // ─── Initialization ──────────────────────────────────────────
@@ -108,6 +109,7 @@ const ConfidenceTracker = (function () {
     }
 
     function init() {
+        _owner = typeof UserStorage !== 'undefined' ? UserStorage.key(STORAGE_KEY) : STORAGE_KEY;
         let authState = null;
         if (typeof AuthManager !== 'undefined') {
             const user = AuthManager.getCurrentUserSync();
@@ -120,7 +122,7 @@ const ConfidenceTracker = (function () {
             _state = authState;
         } else {
             const storage = _getStorage();
-            const saved = storage.getItem(STORAGE_KEY);
+            const saved = storage.getItem(typeof UserStorage !== 'undefined' ? UserStorage.key(STORAGE_KEY) : STORAGE_KEY);
             if (saved) {
                 try {
                     _state = JSON.parse(saved);
@@ -506,6 +508,7 @@ const ConfidenceTracker = (function () {
     }
 
     function _ensureInit() {
+        if (typeof UserStorage !== 'undefined' && _owner !== UserStorage.key(STORAGE_KEY)) init();
         if (!_state) {
             throw new Error('[ConfidenceTracker] Not initialized. Call ConfidenceTracker.init() first.');
         }
@@ -513,7 +516,7 @@ const ConfidenceTracker = (function () {
 
     function _persist() {
         try {
-            _getStorage().setItem(STORAGE_KEY, JSON.stringify(_state));
+            _getStorage().setItem(typeof UserStorage !== 'undefined' ? UserStorage.key(STORAGE_KEY) : STORAGE_KEY, JSON.stringify(_state));
         } catch (e) {
             console.error('[ConfidenceTracker] Failed to persist:', e);
         }
