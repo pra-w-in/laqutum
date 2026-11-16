@@ -926,6 +926,7 @@ const PreviewApp = (() => {
                 container.querySelectorAll('.dashboard-view-tab').forEach(t => t.setAttribute('aria-pressed', String(t === tab)));
                 tab.classList.add('active');
                 renderActiveDashboardTab();
+                wireAppBottomNav('home');
             });
         });
 
@@ -1120,6 +1121,25 @@ const PreviewApp = (() => {
             const activeItem = document.getElementById(`app-nav-${activeId}`);
             if (activeItem) { activeItem.classList.add('active'); activeItem.setAttribute('aria-current', 'page'); }
         }
+
+        nav?.querySelectorAll('[data-rail-tab]').forEach(button => {
+            button.setAttribute('aria-pressed', String(activeId === 'home' && currentDashboardTab === button.dataset.railTab));
+            if (button.dataset.wired) return;
+            button.dataset.wired = 'true';
+            button.addEventListener('click', () => {
+                currentDashboardTab = button.dataset.railTab;
+                renderPostResultsChoice();
+            });
+        });
+        const learner = typeof AuthManager !== 'undefined' ? AuthManager.getCurrentUserSync() : null;
+        const completed = allAptitudeTopics.filter(t => learner?.topicProgress?.[t.id]?.completed).length;
+        const total = allAptitudeTopics.length;
+        const progress = document.getElementById('rail-progress-bar');
+        if (progress) { progress.max = total; progress.value = completed; }
+        const percent = document.getElementById('rail-progress-percent');
+        if (percent) percent.textContent = `${Math.round(completed / total * 100)}%`;
+        const progressCopy = document.getElementById('rail-progress-copy');
+        if (progressCopy) progressCopy.textContent = `${completed} of ${total} topics completed`;
 
         if (homeBtn && !homeBtn.dataset.wired) {
             homeBtn.dataset.wired = 'true';

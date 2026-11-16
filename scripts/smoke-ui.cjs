@@ -18,6 +18,12 @@ const base = process.env.UI_RENDER_URL || 'http://127.0.0.1:8080/__preview';
       page.on('response', response => { if (response.status() >= 400 && response.url().startsWith('http://127.0.0.1:8080/')) failures.push(`${response.status()} ${response.url()}`); });
       await page.goto(base, { waitUntil: 'networkidle' });
       await page.locator('#dashboard-content .dashboard-topic-card').first().waitFor();
+      if (viewport.width > 760) {
+        for (const tab of ['route', 'notebook', 'coverage', 'patterns']) {
+          await page.locator(`[data-rail-tab="${tab}"]`).click();
+          assert.equal(await page.locator(`[data-dtab="${tab}"]`).getAttribute('aria-pressed'), 'true');
+        }
+      }
       assert.equal(await page.locator('#library-result-count').innerText(), '47 topics');
       await page.locator('#workspace-category').selectOption('starter');
       assert.equal(await page.locator('#all-topics-grid-container .dashboard-topic-card').count(), 6);

@@ -7,9 +7,9 @@
     <meta name="description" content="Learn aptitude patterns with worked examples, guided practice, a personal study plan and an AI tutor.">
     <meta name="keywords" content="aptitude, aptitude tricks, aptitude formulas, crack interview, placement preparation, quantitative aptitude, logical reasoning">
     <meta name="color-scheme" content="light">
-    <link rel="stylesheet" href="workspace.css?v=20261115">
-    <link rel="stylesheet" href="workspace-learning.css?v=20261115">
-    <link rel="stylesheet" href="workspace-tools.css?v=20261115b">
+    <link rel="stylesheet" href="workspace.css?v=20261116-sidebar">
+    <link rel="stylesheet" href="workspace-learning.css?v=20261116-neutral">
+    <link rel="stylesheet" href="workspace-tools.css?v=20261116-chat">
 </head>
 <body>
 
@@ -205,6 +205,18 @@
                 </span>
                 <span class="app-nav-text">Challenge</span>
             </button>
+            <div class="rail-study-tools" aria-label="Study shortcuts">
+                <h2>Study tools</h2>
+                <button type="button" data-rail-tab="route"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3v4m10-4v4M4 10h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7"/></svg>My plan</button>
+                <button type="button" data-rail-tab="notebook"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 3h14v18H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm3 5h7m-7 4h7M6 17h14" stroke="currentColor" stroke-width="1.7"/></svg>My mistakes</button>
+                <button type="button" data-rail-tab="coverage"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16" stroke="currentColor" stroke-width="1.7"/></svg>Exam guide</button>
+            </div>
+            <div class="rail-progress" aria-label="Learning progress">
+                <div class="rail-progress-heading"><strong>Your progress</strong><span id="rail-progress-percent">0%</span></div>
+                <progress id="rail-progress-bar" max="47" value="0" aria-label="Completed topics"></progress>
+                <p id="rail-progress-copy">0 of 47 topics completed</p>
+                <button type="button" data-rail-tab="patterns">Browse topics <span aria-hidden="true">→</span></button>
+            </div>
         </nav>
 
     </div>
@@ -227,9 +239,9 @@
     <script src="engine/checkpoints.js?v=20261017-light2"></script>
     <script src="coverage-map.js?v=20261017-light2"></script>
     <script src="ai-config.js?v=20261017-light2"></script>
-    <script src="ai-tutor.js?v=20261115-rebuild"></script>
+    <script src="ai-tutor.js?v=20261116-chat"></script>
     <script src="socio.js?v=20261115-rebuild"></script>
-    <script src="preview.js?v=20261115-rebuild2"></script>
+    <script src="preview.js?v=20261116-sidebar"></script>
     <script src="battle.js?v=20261115-rebuild"></script>
     <script src="auth.js?v=20261017-light2"></script>
 </body>

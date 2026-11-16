@@ -18,7 +18,9 @@ const base = process.env.UI_RENDER_URL || 'http://127.0.0.1:8080/__preview';
   const report = { mode: 'isolated headless; fresh contexts; no existing browser connection', base, captures: [] };
   try {
     for (const [size, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, laptop: { width: 820, height: 900 }, mobile: { width: 390, height: 844 }, compact: { width: 320, height: 700 } })) {
+      if (process.env.UI_RENDER_SIZES && !process.env.UI_RENDER_SIZES.split(',').includes(size)) continue;
       for (const screen of ['home', 'lesson', 'practice', 'feedback', 'tutor', 'group', 'challenge', 'route', 'notebook', 'coverage', 'auth']) {
+        if (process.env.UI_RENDER_SCREENS && !process.env.UI_RENDER_SCREENS.split(',').includes(screen)) continue;
         const context = await browser.newContext({ viewport, deviceScaleFactor: 1, reducedMotion: 'reduce' });
         const page = await context.newPage();
         const errors = [];

@@ -751,7 +751,7 @@ Do not fall for the **Surface Similarity Trap** — solving with a memorized for
         const feed = $('ai-chat-messages');
         if (feed) {
             setTimeout(() => {
-                feed.scrollTop = feed.scrollHeight;
+                feed.scrollTop = messages.length ? feed.scrollHeight : 0;
             }, 60);
         }
     }
